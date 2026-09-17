@@ -3,11 +3,19 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import { useFonts, Nunito_400Regular, Nunito_600SemiBold, Nunito_800ExtraBold } from "@expo-google-fonts/nunito";
 import * as SplashScreen from "expo-splash-screen";
 import { colors } from "../src/theme";
-import { useAuth } from "../src/hooks/useAuth";
+import { AuthProvider, useAuth } from "../src/hooks/useAuth";
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  return (
+    <AuthProvider>
+      <RootNavigator />
+    </AuthProvider>
+  );
+}
+
+function RootNavigator() {
   const [fontsLoaded] = useFonts({ Nunito_400Regular, Nunito_600SemiBold, Nunito_800ExtraBold });
   const { profile, loading, isOnboardingComplete } = useAuth();
   const segments = useSegments();
