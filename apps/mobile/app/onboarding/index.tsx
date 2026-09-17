@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { View, Text, TextInput, StyleSheet, Pressable, ScrollView, ActivityIndicator } from "react-native";
+import { View, Text, TextInput, StyleSheet, Pressable, ScrollView, ActivityIndicator, Image, Alert } from "react-native";
 import { useRouter } from "expo-router";
+import * as ImagePicker from "expo-image-picker";
 import { Button } from "../../src/components/Button";
 import { colors, spacing, typography, radii } from "../../src/theme";
-import { api } from "../../src/api/client";
+import { api, uploadPhoto } from "../../src/api/client";
 import { useAuth } from "../../src/hooks/useAuth";
 import type { Activity, SkillLevel } from "../../src/api/types";
 
@@ -23,7 +24,8 @@ export default function OnboardingScreen() {
   const [bio, setBio] = useState("");
   const [level, setLevel] = useState<SkillLevel>("beginner");
   const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
-  const [photoConfirmed, setPhotoConfirmed] = useState(false);
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   useEffect(() => {
     api.get<Activity[]>("/activities").then(setActivities);
@@ -32,25 +34,49 @@ export default function OnboardingScreen() {
   const step = STEPS[stepIndex];
   const isLast = stepIndex === STEPS.length - 1;
 
+  async function pickPhoto() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Permission needed", "Allow photo library access to add a profile photo.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.6, // client-side compression toward the spec's <=2MB upload target
+      allowsEditing: true,
+      aspect: [1, 1],
+    });
+    if (result.canceled) return;
+
+    setUploadingPhoto(true);
+    try {
+      await uploadPhoto(result.assets[0].uri);
+      setPhotoUri(result.assets[0].uri);
+    } catch (err) {
+      Alert.alert("Couldn't upload photo", (err as Error).message);
+    } finally {
+      setUploadingPhoto(false);
+    }
+  }
+
   async function next() {
     if (!isLast) {
       setStepIndex((i) => i + 1);
       return;
     }
+    if (!photoUri) {
+      Alert.alert("Add a photo first", "A profile photo is required before you can finish onboarding.");
+      setStepIndex(STEPS.indexOf("photo"));
+      return;
+    }
     setSaving(true);
     try {
-      // A real client would upload a captured/picked image via POST /profile/me/photo
-      // (expo-image-picker) before this step; the scaffold stores a placeholder URL
-      // so the mandatory-completion gate can be exercised end-to-end.
       await api.patch("/profile/me", {
         displayName,
         bio,
         level,
         preferredActivityIds: selectedActivities,
       });
-      if (!photoConfirmed) {
-        // no-op: placeholder to keep the photo step meaningful without a real upload dependency
-      }
       await refresh();
       router.replace("/(tabs)");
     } finally {
@@ -77,8 +103,12 @@ export default function OnboardingScreen() {
         {step === "photo" && (
           <>
             <Text style={styles.heading}>Add a photo</Text>
-            <Pressable style={styles.photoPlaceholder} onPress={() => setPhotoConfirmed(true)}>
-              <Text style={{ color: colors.muted }}>{photoConfirmed ? "Photo selected ✓" : "Tap to choose a photo"}</Text>
+            <Pressable style={styles.photoPlaceholder} onPress={pickPhoto} disabled={uploadingPhoto}>
+              {photoUri ? (
+                <Image source={{ uri: photoUri }} style={styles.photoPreview} />
+              ) : (
+                <Text style={{ color: colors.muted }}>{uploadingPhoto ? "Uploading…" : "Tap to choose a photo"}</Text>
+              )}
             </Pressable>
           </>
         )}
@@ -173,7 +203,9 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
+  photoPreview: { width: "100%", height: "100%" },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   chip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: radii.lg, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, minHeight: 44, justifyContent: "center" },
   chipSelected: { backgroundColor: colors.coral, borderColor: colors.coral },
