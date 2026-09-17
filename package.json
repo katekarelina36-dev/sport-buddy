@@ -1,0 +1,14 @@
+{
+  "name": "sport-buddy",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace apps/api",
+    "dev:mobile": "npm run start --workspace apps/mobile",
+    "db:up": "docker compose up -d db",
+    "db:migrate": "npm run prisma:migrate --workspace apps/api",
+    "db:seed": "npm run prisma:seed --workspace apps/api"
+  }
+}

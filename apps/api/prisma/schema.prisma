@@ -1,0 +1,412 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis]
+}
+
+// ------------------------------------------------------------------
+// Enums
+// ------------------------------------------------------------------
+
+enum SkillLevel {
+  beginner
+  intermediate
+  advanced
+}
+
+enum UserRole {
+  newcomer
+  organiser
+  community_manager
+}
+
+enum ActivityPostStatus {
+  active
+  inactive
+}
+
+enum ActivityRequestStatus {
+  pending
+  approved
+  rejected
+}
+
+enum TrainingStatus {
+  scheduled
+  completed
+  cancelled
+}
+
+enum CalendarSyncStatus {
+  pending
+  synced
+  failed
+}
+
+enum CalendarProvider {
+  google
+  apple
+}
+
+enum SubscriptionStatus {
+  active
+  cancelled
+  expired
+}
+
+enum MessageType {
+  text
+  system
+  template
+}
+
+enum MediaType {
+  photo
+}
+
+// ------------------------------------------------------------------
+// Profile layer (F1, F5, F6)
+// ------------------------------------------------------------------
+
+model User {
+  id                 String   @id @default(uuid())
+  email              String   @unique
+  passwordHash       String
+  role               UserRole @default(newcomer)
+  isCoach            Boolean  @default(false)
+  createdAt          DateTime @default(now())
+
+  profile            UserProfile?
+  permissions        UserPermissions?
+  activities         UserActivity[]
+  availability       UserAvailability[]
+  activityPosts      ActivityPost[]         @relation("PostAuthor")
+  activityRequests   ActivityRequest[]      @relation("Requester")
+  media              MediaAsset[]
+  chatsAsA           Chat[]                 @relation("ChatUserA")
+  chatsAsB           Chat[]                 @relation("ChatUserB")
+  chatReads          ChatRead[]
+  messages           Message[]
+  trainingsAsHost    TrainingSession[]      @relation("TrainingHost")
+  trainingsAsGuest   TrainingSession[]      @relation("TrainingParticipant")
+  calendarIntegrations CalendarIntegration[]
+  communityMembers   CommunityMember[]
+  matchSubscriptions MatchSubscription[]
+  notifications      Notification[]
+  pushTokens         PushToken[]
+}
+
+model UserProfile {
+  userId             String   @id
+  user               User     @relation(fields: [userId], references: [id])
+  displayName        String
+  photoUrl           String?
+  bio                String?
+  level              SkillLevel @default(beginner)
+  locationLat        Float?
+  locationLng        Float?
+  timezone           String   @default("UTC")
+  successfulTrainingsCount Int @default(0)
+  onboardingCompletedAt DateTime?
+}
+
+model UserPermissions {
+  userId          String  @id
+  user            User    @relation(fields: [userId], references: [id])
+  locationGranted Boolean @default(false)
+  calendarGranted Boolean @default(false)
+  pushGranted     Boolean @default(false)
+}
+
+model Activity {
+  id        String   @id @default(uuid())
+  name      String
+  iconUrl   String?
+  category  String?
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+
+  userActivities    UserActivity[]
+  activityPosts     ActivityPost[]
+  activityPostSlots ActivityPostSlot[]
+  activityRequests  ActivityRequest[]
+  trainingSessions  TrainingSession[]
+  challenges        Challenge[]
+  matchSubscriptions MatchSubscription[]
+  chats             Chat[]
+}
+
+model UserActivity {
+  id         String     @id @default(uuid())
+  userId     String
+  user       User       @relation(fields: [userId], references: [id])
+  activityId String
+  activity   Activity   @relation(fields: [activityId], references: [id])
+  level      SkillLevel @default(beginner)
+  isPreferred Boolean   @default(true)
+
+  @@unique([userId, activityId])
+}
+
+model UserAvailability {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  dayOfWeek  Int?     // 0-6, used when recurring = true
+  date       DateTime? // used when recurring = false
+  startTime  String   // "HH:mm", stored in UTC
+  endTime    String
+  recurring  Boolean  @default(false)
+}
+
+// ------------------------------------------------------------------
+// Activity layer (F2, F3, F4)
+// ------------------------------------------------------------------
+
+model ActivityPost {
+  id          String             @id @default(uuid())
+  authorId    String
+  author      User               @relation("PostAuthor", fields: [authorId], references: [id])
+  activityId  String
+  activity    Activity           @relation(fields: [activityId], references: [id])
+  level       SkillLevel
+  locationLat Float?
+  locationLng Float?
+  status      ActivityPostStatus @default(active)
+  createdAt   DateTime           @default(now())
+
+  slots    ActivityPostSlot[]
+  requests ActivityRequest[]
+
+  @@index([activityId, status])
+}
+
+model ActivityPostSlot {
+  id         String       @id @default(uuid())
+  postId     String
+  post       ActivityPost @relation(fields: [postId], references: [id])
+  activityId String
+  activity   Activity     @relation(fields: [activityId], references: [id])
+  date       DateTime
+  startTime  String
+  endTime    String
+  isFilled   Boolean      @default(false)
+
+  requests ActivityRequest[]
+}
+
+// activity_requests_state is derived from ActivityRequest.status; exposed via API, not a separate table.
+
+model ActivityRequest {
+  id          String                 @id @default(uuid())
+  requesterId String
+  requester   User                   @relation("Requester", fields: [requesterId], references: [id])
+  postId      String
+  post        ActivityPost           @relation(fields: [postId], references: [id])
+  slotId      String
+  slot        ActivityPostSlot       @relation(fields: [slotId], references: [id])
+  activityId  String
+  activity    Activity               @relation(fields: [activityId], references: [id])
+  status      ActivityRequestStatus  @default(pending)
+  createdAt   DateTime               @default(now())
+  decidedAt   DateTime?
+
+  chat Chat?
+
+  @@unique([requesterId, postId, status])
+}
+
+// ------------------------------------------------------------------
+// Match layer (F7-F14)
+// ------------------------------------------------------------------
+
+model Chat {
+  id                  String   @id @default(uuid())
+  userAId             String
+  userA               User     @relation("ChatUserA", fields: [userAId], references: [id])
+  userBId             String
+  userB               User     @relation("ChatUserB", fields: [userBId], references: [id])
+  originatingRequestId String? @unique
+  originatingRequest  ActivityRequest? @relation(fields: [originatingRequestId], references: [id])
+  activityId          String
+  activity            Activity @relation(fields: [activityId], references: [id])
+  isClosed            Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  lastMessageAt        DateTime @default(now())
+
+  messages         Message[]
+  reads            ChatRead[]
+  trainingSessions TrainingSession[]
+
+  @@index([userAId])
+  @@index([userBId])
+}
+
+model ChatRead {
+  chatId     String
+  chat       Chat     @relation(fields: [chatId], references: [id])
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  lastReadAt DateTime @default(now())
+
+  @@id([chatId, userId])
+}
+
+model Message {
+  id        String      @id @default(uuid())
+  chatId    String
+  chat      Chat        @relation(fields: [chatId], references: [id])
+  senderId  String?
+  sender    User?       @relation(fields: [senderId], references: [id])
+  body      String
+  type      MessageType @default(text)
+  createdAt DateTime    @default(now())
+
+  @@index([chatId, createdAt])
+}
+
+model TrainingSession {
+  id            String             @id @default(uuid())
+  chatId        String
+  chat          Chat               @relation(fields: [chatId], references: [id])
+  hostId        String
+  host          User               @relation("TrainingHost", fields: [hostId], references: [id])
+  participantId String
+  participant   User               @relation("TrainingParticipant", fields: [participantId], references: [id])
+  activityId    String
+  activity      Activity           @relation(fields: [activityId], references: [id])
+  scheduledAt   DateTime
+  locationText  String?
+  status        TrainingStatus     @default(scheduled)
+  completedAt   DateTime?
+
+  isRecurring     Boolean  @default(false)
+  recurrenceRule  String?
+
+  calendarSyncStatus     CalendarSyncStatus @default(pending)
+  externalCalendarEventId String?
+
+  // First-event mutual confirmation (F14)
+  completedByUserA  Boolean  @default(false)
+  completedByUserB  Boolean  @default(false)
+  didHappenA        Boolean?
+  didHappenB        Boolean?
+  wouldPlayAgainA   Boolean?
+  wouldPlayAgainB   Boolean?
+  reasonNoA         String?
+  reasonNoB         String?
+
+  challenge TrainingChallenge?
+
+  @@index([chatId])
+}
+
+model CalendarIntegration {
+  userId      String
+  user        User             @relation(fields: [userId], references: [id])
+  provider    CalendarProvider
+  oauthTokenRef String
+  connectedAt DateTime         @default(now())
+
+  @@id([userId, provider])
+}
+
+model Challenge {
+  id         String   @id @default(uuid())
+  activityId String
+  activity   Activity @relation(fields: [activityId], references: [id])
+  content    String
+  isActive   Boolean  @default(true)
+
+  trainingChallenges TrainingChallenge[]
+}
+
+model TrainingChallenge {
+  trainingId  String    @id
+  training    TrainingSession @relation(fields: [trainingId], references: [id])
+  challengeId String
+  challenge   Challenge @relation(fields: [challengeId], references: [id])
+  sentAt      DateTime  @default(now())
+}
+
+// ------------------------------------------------------------------
+// Community layer (F15) - modeled fully now, MVP UI is read-only
+// ------------------------------------------------------------------
+
+model Community {
+  id      String @id @default(uuid())
+  name    String
+  iconUrl String?
+
+  members CommunityMember[]
+}
+
+model CommunityMember {
+  communityId String
+  community   Community @relation(fields: [communityId], references: [id])
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  isAssistant Boolean   @default(false)
+  joinedAt    DateTime  @default(now())
+
+  @@id([communityId, userId])
+}
+
+// ------------------------------------------------------------------
+// Waitlist (F9)
+// ------------------------------------------------------------------
+
+model MatchSubscription {
+  id               String             @id @default(uuid())
+  userId           String
+  user             User               @relation(fields: [userId], references: [id])
+  activityId       String
+  activity         Activity           @relation(fields: [activityId], references: [id])
+  availabilityWindow Json
+  locationRadiusKm Float?
+  status           SubscriptionStatus @default(active)
+  createdAt        DateTime           @default(now())
+  expiresAt        DateTime
+}
+
+// ------------------------------------------------------------------
+// Notifications (F16)
+// ------------------------------------------------------------------
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  type      String
+  payload   Json
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model PushToken {
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  deviceToken String
+  platform    String   // "ios" | "android"
+  updatedAt   DateTime @updatedAt
+
+  @@id([userId, deviceToken])
+}
+
+// ------------------------------------------------------------------
+// Media (F5)
+// ------------------------------------------------------------------
+
+model MediaAsset {
+  id         String    @id @default(uuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id])
+  url        String
+  type       MediaType @default(photo)
+  uploadedAt DateTime  @default(now())
+}
