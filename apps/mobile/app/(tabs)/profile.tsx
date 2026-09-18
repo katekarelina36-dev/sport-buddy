@@ -1,10 +1,11 @@
-import { View, Text, StyleSheet, ScrollView } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Image } from "react-native";
 import { useRouter } from "expo-router";
 import { Card } from "../../src/components/Card";
 import { Badge } from "../../src/components/Badge";
 import { Button } from "../../src/components/Button";
 import { colors, spacing, typography } from "../../src/theme";
 import { useAuth } from "../../src/hooks/useAuth";
+import { API_BASE_URL } from "../../src/api/client";
 
 // F5: My Profile (view/edit). Inline sections per spec; edit affordances are
 // left as a follow-up wiring pass (PATCH /profile/me is already live from
@@ -19,7 +20,12 @@ export default function ProfileScreen() {
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>My profile</Text>
 
-      <Card style={{ gap: spacing.sm }}>
+      <Card style={{ gap: spacing.sm, alignItems: "center" }}>
+        {profile.profile?.photoUrl ? (
+          <Image source={{ uri: `${API_BASE_URL}${profile.profile.photoUrl}` }} style={styles.avatar} />
+        ) : (
+          <View style={[styles.avatar, styles.avatarPlaceholder]} />
+        )}
         <Text style={styles.name}>{profile.profile?.displayName}</Text>
         <Badge label={profile.profile?.level ?? "beginner"} />
         {profile.profile?.bio && <Text style={styles.bio}>{profile.profile.bio}</Text>}
@@ -60,6 +66,8 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: { padding: spacing.lg, backgroundColor: colors.offWhite, flexGrow: 1 },
   title: { fontFamily: typography.fontFamilyBold, fontSize: 24, color: colors.charcoal, marginBottom: spacing.md },
+  avatar: { width: 88, height: 88, borderRadius: 44 },
+  avatarPlaceholder: { backgroundColor: colors.sageLight },
   name: { fontFamily: typography.fontFamilyBold, fontSize: 20, color: colors.charcoal },
   bio: { fontFamily: typography.fontFamilyRegular, color: colors.muted },
   stat: { fontFamily: typography.fontFamily, fontSize: 13, color: colors.sageDark },
