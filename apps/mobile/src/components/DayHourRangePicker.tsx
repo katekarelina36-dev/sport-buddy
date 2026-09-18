@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { View, Text, StyleSheet, PanResponder, Pressable } from "react-native";
 import { colors, radii, spacing, typography } from "../theme";
 
@@ -26,6 +26,16 @@ interface Props {
 export function DayHourRangePicker({ ranges, onAddRange, onRemoveRange }: Props) {
   const [dragRange, setDragRange] = useState<{ start: number; end: number } | null>(null);
   const dragStartRef = useRef<number | null>(null);
+  const dragEndRef = useRef<number | null>(null);
+
+  // Keep a ref to the latest onAddRange: the PanResponder object below is
+  // created once (via useRef) so its closures would otherwise be permanently
+  // bound to whatever `onAddRange` was on the very first render (a stale
+  // closure) — reading through a ref that's updated every render avoids that.
+  const onAddRangeRef = useRef(onAddRange);
+  useEffect(() => {
+    onAddRangeRef.current = onAddRange;
+  }, [onAddRange]);
 
   function hourFromY(y: number): number {
     return Math.min(HOURS.length - 1, Math.max(0, Math.floor(y / ROW_HEIGHT)));
@@ -38,24 +48,29 @@ export function DayHourRangePicker({ ranges, onAddRange, onRemoveRange }: Props)
       onPanResponderGrant: (evt) => {
         const hour = hourFromY(evt.nativeEvent.locationY);
         dragStartRef.current = hour;
+        dragEndRef.current = hour;
         setDragRange({ start: hour, end: hour });
       },
       onPanResponderMove: (evt) => {
         if (dragStartRef.current === null) return;
         const hour = hourFromY(evt.nativeEvent.locationY);
+        dragEndRef.current = hour;
         setDragRange({ start: dragStartRef.current, end: hour });
       },
       onPanResponderRelease: () => {
-        if (dragStartRef.current === null) return;
-        setDragRange((current) => {
-          if (current) {
-            const from = Math.min(current.start, current.end);
-            const to = Math.max(current.start, current.end) + 1; // end exclusive -> next hour boundary
-            onAddRange({ startTime: formatHour(from), endTime: formatHour(Math.min(to, 24)) });
-          }
-          return null;
-        });
+        const start = dragStartRef.current;
+        const end = dragEndRef.current;
         dragStartRef.current = null;
+        dragEndRef.current = null;
+        setDragRange(null);
+        if (start === null) return;
+        // Called directly in this event handler (not nested inside the
+        // setDragRange updater above) — updating a *different* component's
+        // state from inside another component's state-update callback is
+        // what React's Fabric renderer flags as an error.
+        const from = Math.min(start, end ?? start);
+        const to = Math.max(start, end ?? start) + 1;
+        onAddRangeRef.current({ startTime: formatHour(from), endTime: formatHour(Math.min(to, 24)) });
       },
     })
   ).current;

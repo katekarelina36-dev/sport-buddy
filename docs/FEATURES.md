@@ -37,9 +37,8 @@ None of these block the core loop (onboarding → post → request → approve �
 
 Current state (`lib/media.ts`, `routes/profile.ts` POST `/me/photo`) is a dev-only scaffold and has real gaps before this could hold real users' photos:
 
-- **No access control on serving media** — `/media/*` is a public static route; anyone with a `photoUrl` can view it without being authenticated or matched with that user. Needs at minimum an auth check (or signed/expiring URLs once this moves to S3/GCS, per the README's swap-out plan).
-- **No server-side content-type/magic-byte validation** — the upload endpoint stores whatever bytes are POSTed and labels them `.jpg` regardless of actual content. Needs a real image-decode check (e.g. via `sharp`) before accepting a file, both to reject non-images and to normalize/strip EXIF metadata (EXIF can carry GPS coordinates from the original photo — a privacy leak independent of the app's own location features).
-- **No server-side size limit** — client compresses to ≤2MB per spec, but the server doesn't enforce a cap, so a request bypassing the app could upload arbitrarily large files (disk-fill risk).
+- ~~No server-side content-type validation / no size cap~~ **Fixed**: `POST /profile/me/photo` now caps raw upload size (8MB) and pipes the upload through `sharp` — decode-validates it's really an image, resizes to a fixed 512×512 JPEG, and strips EXIF metadata in the process (EXIF can carry GPS coordinates from the original photo — a privacy leak independent of the app's own location features).
+- **No access control on serving media** — `/media/*` is still a public static route; anyone with a `photoUrl` can view it without being authenticated or matched with that user. Needs at minimum an auth check (or signed/expiring URLs once this moves to S3/GCS, per the README's swap-out plan).
 - **No deletion path** — no way for a user (or an account-deletion flow) to remove a previously uploaded photo from storage; needed for any real privacy/right-to-erasure compliance.
 - **Local disk storage** — fine for this dev scaffold; production must move to the S3/GCS `MediaDriver` already stubbed in `lib/media.ts`, with private-by-default bucket ACLs.
 

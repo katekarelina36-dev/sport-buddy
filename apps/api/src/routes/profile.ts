@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import sharp from "sharp";
 import { prisma } from "../lib/prisma.js";
 import { requireAuth, type AuthedRequest } from "../lib/auth.js";
 import { mediaDriver } from "../lib/media.js";
@@ -56,13 +57,43 @@ profileRouter.patch("/me", async (req: AuthedRequest, res) => {
   res.json(await loadFullProfile(req.userId!));
 });
 
-// F5: photo upload, compressed client-side to <=2MB before hitting this endpoint.
+// F5: photo upload. Client compresses to <=2MB as a first pass, but the
+// server is the actual enforcement point: caps raw upload size, verifies the
+// bytes really decode as an image (rejects anything else), and re-encodes to
+// a small fixed-size JPEG — which also strips EXIF metadata (which can carry
+// GPS coordinates from wherever the photo was taken, a privacy leak
+// independent of the app's own location features).
+const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
+
 profileRouter.post("/me/photo", async (req: AuthedRequest, res) => {
   const chunks: Buffer[] = [];
-  req.on("data", (chunk) => chunks.push(chunk));
+  let tooLarge = false;
+  req.on("data", (chunk: Buffer) => {
+    if (tooLarge) return;
+    chunks.push(chunk);
+    if (chunks.reduce((sum, c) => sum + c.length, 0) > MAX_UPLOAD_BYTES) {
+      tooLarge = true;
+      res.status(413).json({ error: "Photo too large" });
+      req.destroy();
+    }
+  });
   req.on("end", async () => {
-    const buffer = Buffer.concat(chunks);
-    const url = await mediaDriver.store(req.userId!, `profile-${Date.now()}.jpg`, buffer);
+    if (tooLarge) return;
+    const rawBuffer = Buffer.concat(chunks);
+
+    let processed: Buffer;
+    try {
+      processed = await sharp(rawBuffer)
+        .rotate() // apply EXIF orientation before stripping it
+        .resize(512, 512, { fit: "cover" })
+        .jpeg({ quality: 80 })
+        .toBuffer();
+    } catch {
+      res.status(400).json({ error: "Uploaded file is not a valid image" });
+      return;
+    }
+
+    const url = await mediaDriver.store(req.userId!, `profile-${Date.now()}.jpg`, processed);
     await prisma.userProfile.update({ where: { userId: req.userId! }, data: { photoUrl: url } });
     await prisma.mediaAsset.create({ data: { userId: req.userId!, url, type: "photo" } });
     res.json({ photoUrl: url });
