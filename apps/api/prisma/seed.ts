@@ -72,17 +72,22 @@ async function main() {
     },
   });
 
+  // Backfill city/dateOfBirth on profiles that already existed before these
+  // columns did — `user.upsert`'s update:{} above is a no-op for existing rows.
+  await prisma.userProfile.update({ where: { userId: alice.id }, data: { city: "Warsaw", dateOfBirth: new Date("1996-04-12") } });
+  await prisma.userProfile.update({ where: { userId: bob.id }, data: { city: "Warsaw", dateOfBirth: new Date("1999-11-02") } });
+
   const tennis = await prisma.activity.findUniqueOrThrow({ where: { id: "tennis" } });
   const running = await prisma.activity.findUniqueOrThrow({ where: { id: "running" } });
 
   await prisma.userActivity.upsert({
     where: { userId_activityId: { userId: alice.id, activityId: tennis.id } },
-    update: {},
+    update: { level: "intermediate", isPreferred: true },
     create: { userId: alice.id, activityId: tennis.id, level: "intermediate", isPreferred: true },
   });
   await prisma.userActivity.upsert({
     where: { userId_activityId: { userId: bob.id, activityId: running.id } },
-    update: {},
+    update: { level: "beginner", isPreferred: true },
     create: { userId: bob.id, activityId: running.id, level: "beginner", isPreferred: true },
   });
 
