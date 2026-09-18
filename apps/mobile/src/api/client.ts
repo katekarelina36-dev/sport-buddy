@@ -15,12 +15,19 @@ export async function clearToken(): Promise<void> {
   await AsyncStorage.removeItem(TOKEN_KEY);
 }
 
+// Free ngrok tunnels show an HTML "you're about to visit..." interstitial to
+// anonymous-looking requests (very noticeable for plain <Image> loads, which
+// don't look like an API client) instead of proxying through — this header
+// disables that. Harmless / ignored by a real production host.
+const NGROK_SKIP_HEADER = { "ngrok-skip-browser-warning": "true" };
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = await getToken();
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
+      ...NGROK_SKIP_HEADER,
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
@@ -51,6 +58,7 @@ export async function uploadPhoto(localUri: string): Promise<{ photoUrl: string 
     method: "POST",
     headers: {
       "Content-Type": "image/jpeg",
+      ...NGROK_SKIP_HEADER,
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: blob,

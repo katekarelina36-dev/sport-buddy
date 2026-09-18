@@ -7,9 +7,9 @@ import { Avatar } from "../../src/components/Avatar";
 import { colors, spacing, typography } from "../../src/theme";
 import { useAuth } from "../../src/hooks/useAuth";
 
-// F5: My Profile (view/edit). Inline sections per spec; edit affordances are
-// left as a follow-up wiring pass (PATCH /profile/me is already live from
-// onboarding), this screen focuses on the view + navigation entry points.
+// F5: My Profile (view). Editing (photo, name, bio, preferred activities)
+// lives on a dedicated screen (profile/edit.tsx) rather than per-field inline
+// affordances — see docs/FEATURES.md backlog for the inline-edit variant.
 export default function ProfileScreen() {
   const { profile, logout } = useAuth();
   const router = useRouter();
@@ -51,6 +51,7 @@ export default function ProfileScreen() {
       </Card>
 
       <View style={styles.actions}>
+        <Button label="Edit profile" onPress={() => router.push("/profile/edit")} />
         <Button label="Pending requests" onPress={() => router.push("/requests")} />
         <Button label="Edit availability" variant="secondary" onPress={() => router.push({ pathname: "/availability", params: { mode: "profile" } })} />
         <Button label="Log out" variant="outline" onPress={logout} />

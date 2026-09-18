@@ -23,7 +23,7 @@ Reference for the technical requirements doc (F1–F16). "API" paths are relativ
 
 ## Known gaps vs. the full spec (by design, for a first scaffold)
 
-- **F5 inline per-section edit affordances** — profile view renders; wiring each pencil-icon field to its own optimistic PATCH is straightforward given `PATCH /profile/me` already exists, but only onboarding currently calls it.
+- ~~F5 profile editing~~ **Fixed**: `app/profile/edit.tsx` — photo, name, bio, and preferred activities are editable from one screen (`Edit profile` button on My Profile). Not yet done: per-section inline pencil-icon editing (one field at a time, optimistic) as the spec originally describes — this is a single edit screen instead. Level isn't editable here yet (see the per-sport-level item below).
 - **F16 device registration** — the API endpoint (`POST /notifications/push-tokens`) exists; the mobile app doesn't yet request permission / call it (needs `expo-notifications` + real FCM/APNs credentials to be meaningful).
 - **Recurring events** (F12) — `TrainingSession.recurrenceRule` is modeled and accepted by the API; the job that actually expands a recurrence into future `TrainingSession` rows isn't implemented yet.
 - **Swipe-to-decide on F8** — explicitly called out as "nice-to-have, not MVP-blocking" in the spec; buttons only for now.

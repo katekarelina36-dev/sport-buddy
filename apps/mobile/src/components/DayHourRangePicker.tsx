@@ -27,6 +27,8 @@ export function DayHourRangePicker({ ranges, onAddRange, onRemoveRange }: Props)
   const [dragRange, setDragRange] = useState<{ start: number; end: number } | null>(null);
   const dragStartRef = useRef<number | null>(null);
   const dragEndRef = useRef<number | null>(null);
+  const gridRef = useRef<View>(null);
+  const gridPageYRef = useRef(0);
 
   // Keep a ref to the latest onAddRange: the PanResponder object below is
   // created once (via useRef) so its closures would otherwise be permanently
@@ -37,8 +39,9 @@ export function DayHourRangePicker({ ranges, onAddRange, onRemoveRange }: Props)
     onAddRangeRef.current = onAddRange;
   }, [onAddRange]);
 
-  function hourFromY(y: number): number {
-    return Math.min(HOURS.length - 1, Math.max(0, Math.floor(y / ROW_HEIGHT)));
+  function hourFromPageY(pageY: number): number {
+    const relativeY = pageY - gridPageYRef.current;
+    return Math.min(HOURS.length - 1, Math.max(0, Math.floor(relativeY / ROW_HEIGHT)));
   }
 
   const panResponder = useRef(
@@ -46,14 +49,22 @@ export function DayHourRangePicker({ ranges, onAddRange, onRemoveRange }: Props)
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: (evt) => {
-        const hour = hourFromY(evt.nativeEvent.locationY);
-        dragStartRef.current = hour;
-        dragEndRef.current = hour;
-        setDragRange({ start: hour, end: hour });
+        // evt.nativeEvent.locationY is relative to whichever individual hour
+        // row the touch landed on (each hour is its own child View), not the
+        // overall grid — that's what was making every drag compute as
+        // hour ~0 regardless of where you actually pressed. Measuring the
+        // grid's absolute screen position and using pageY instead fixes it.
+        gridRef.current?.measure((_x, _y, _w, _h, _pageX, pageY) => {
+          gridPageYRef.current = pageY;
+          const hour = hourFromPageY(evt.nativeEvent.pageY);
+          dragStartRef.current = hour;
+          dragEndRef.current = hour;
+          setDragRange({ start: hour, end: hour });
+        });
       },
       onPanResponderMove: (evt) => {
         if (dragStartRef.current === null) return;
-        const hour = hourFromY(evt.nativeEvent.locationY);
+        const hour = hourFromPageY(evt.nativeEvent.pageY);
         dragEndRef.current = hour;
         setDragRange({ start: dragStartRef.current, end: hour });
       },
@@ -77,7 +88,7 @@ export function DayHourRangePicker({ ranges, onAddRange, onRemoveRange }: Props)
 
   return (
     <View>
-      <View style={styles.grid} {...panResponder.panHandlers}>
+      <View ref={gridRef} style={styles.grid} {...panResponder.panHandlers}>
         {HOURS.map((hour) => {
           const inDrag =
             dragRange !== null && hour >= Math.min(dragRange.start, dragRange.end) && hour <= Math.max(dragRange.start, dragRange.end);
