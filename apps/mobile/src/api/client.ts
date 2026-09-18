@@ -47,21 +47,31 @@ export const api = {
   put: <T>(path: string, body?: unknown) => request<T>(path, { method: "PUT", body: body ? JSON.stringify(body) : undefined }),
 };
 
-// F5/F1: uploads a picked photo's raw bytes to POST /profile/me/photo, which
-// expects a raw image stream rather than JSON — bypasses the JSON-only
-// `request` helper above.
+// F5/F1: uploads a picked photo to POST /profile/me/photo as multipart form
+// data (field "photo") — the standard, reliable way to send a file from a
+// React Native URI. An earlier version fetched the local URI into a Blob and
+// sent that as a raw request body, which silently corrupted the image bytes
+// under Expo SDK 57's fetch implementation (Blob round-tripped between two
+// separate fetch() calls is not reliable there).
 export async function uploadPhoto(localUri: string): Promise<{ photoUrl: string }> {
   const token = await getToken();
-  const fileResponse = await fetch(localUri);
-  const blob = await fileResponse.blob();
+  const formData = new FormData();
+  // React Native's fetch/FormData accepts this {uri,name,type} object shape
+  // in place of a real Blob/File — the native layer reads the file directly.
+  formData.append("photo", {
+    uri: localUri,
+    name: "photo.jpg",
+    type: "image/jpeg",
+  } as unknown as Blob);
+
   const res = await fetch(`${API_URL}/profile/me/photo`, {
     method: "POST",
     headers: {
-      "Content-Type": "image/jpeg",
+      // No Content-Type here: fetch sets the multipart boundary itself for FormData bodies.
       ...NGROK_SKIP_HEADER,
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: blob,
+    body: formData,
   });
   if (!res.ok) {
     const text = await res.text();

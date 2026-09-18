@@ -41,7 +41,7 @@ export default function OnboardingScreen() {
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ["images"],
       quality: 0.6, // client-side compression toward the spec's <=2MB upload target
       allowsEditing: true,
       aspect: [1, 1],
