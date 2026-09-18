@@ -5,6 +5,7 @@ import { api } from "../../src/api/client";
 import { Card } from "../../src/components/Card";
 import { Badge } from "../../src/components/Badge";
 import { Button } from "../../src/components/Button";
+import { Avatar } from "../../src/components/Avatar";
 import { colors, spacing, typography } from "../../src/theme";
 import type { ActivityPost } from "../../src/api/types";
 
@@ -41,7 +42,8 @@ export default function PostDetailScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Card style={{ gap: spacing.sm }}>
+      <Card style={{ gap: spacing.sm, alignItems: "center" }}>
+        <Avatar photoUrl={post.author.profile?.photoUrl} size={72} />
         <Text style={styles.name}>{post.author.profile?.displayName}</Text>
         <Badge label={post.level} />
         {post.author.profile?.bio && <Text style={styles.bio}>{post.author.profile.bio}</Text>}

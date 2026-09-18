@@ -2,31 +2,63 @@ import { useState } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { colors, radii, spacing, typography, minTouchTarget } from "../theme";
 import type { AvailabilitySlot } from "../api/types";
+import { MonthCalendar } from "./MonthCalendar";
+import { DayHourRangePicker } from "./DayHourRangePicker";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const HOURS = ["08:00", "10:00", "12:00", "14:00", "16:00", "18:00", "20:00"];
+const WEEKLY_HOURS = ["08:00", "10:00", "12:00", "14:00", "16:00", "18:00", "20:00"];
 
 interface Props {
   value: AvailabilitySlot[];
   onChange: (slots: AvailabilitySlot[]) => void;
 }
 
-// F6: shared week-view availability component, reused by onboarding (F1), My
-// Profile (F5), the feed filter (F3), the waitlist subscribe sheet (F9), and
-// the in-chat scheduler (F12). Recurring-weekly toggle covers the "recurring
-// vs one-off" requirement; times are edited/rendered in local time and stored
-// as UTC "HH:mm" strings by the caller.
+function dateKey(d: Date): string {
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+function slotDateKey(slot: AvailabilitySlot): string | null {
+  if (!slot.date) return null;
+  const d = new Date(slot.date);
+  return dateKey(d);
+}
+
+// F6: shared availability component, reused by onboarding (F1), My Profile
+// (F5), the feed filter (F3), the waitlist subscribe sheet (F9), and the
+// in-chat scheduler (F12). Two modes: "Weekly recurring" (a simple day-of-week
+// x fixed-hour grid) and "One-off dates" (a real month calendar you can
+// browse, plus a drag-to-select hour-range picker per selected day — like
+// Outlook's day view).
 export function AvailabilityPicker({ value, onChange }: Props) {
   const [recurring, setRecurring] = useState(true);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
-  function toggleSlot(dayOfWeek: number, startTime: string) {
-    const endTime = HOURS[HOURS.indexOf(startTime) + 1] ?? "22:00";
-    const exists = value.some((s) => s.dayOfWeek === dayOfWeek && s.startTime === startTime);
+  function toggleWeeklySlot(dayOfWeek: number, startTime: string) {
+    const endTime = WEEKLY_HOURS[WEEKLY_HOURS.indexOf(startTime) + 1] ?? "22:00";
+    const exists = value.some((s) => s.recurring && s.dayOfWeek === dayOfWeek && s.startTime === startTime);
     if (exists) {
-      onChange(value.filter((s) => !(s.dayOfWeek === dayOfWeek && s.startTime === startTime)));
+      onChange(value.filter((s) => !(s.recurring && s.dayOfWeek === dayOfWeek && s.startTime === startTime)));
     } else {
-      onChange([...value, { dayOfWeek, startTime, endTime, recurring }]);
+      onChange([...value, { dayOfWeek, startTime, endTime, recurring: true }]);
     }
+  }
+
+  const oneOffSlots = value.filter((s) => !s.recurring);
+  const selectedDateSlots = selectedDate
+    ? oneOffSlots
+        .map((slot, indexInAll) => ({ slot, indexInAll }))
+        .filter(({ slot }) => slotDateKey(slot) === dateKey(selectedDate))
+    : [];
+
+  function addRangeForSelectedDate(range: { startTime: string; endTime: string }) {
+    if (!selectedDate) return;
+    onChange([...value, { date: selectedDate.toISOString(), startTime: range.startTime, endTime: range.endTime, recurring: false }]);
+  }
+
+  function removeOneOffRange(localIndex: number) {
+    const globalSlot = selectedDateSlots[localIndex]?.slot;
+    if (!globalSlot) return;
+    onChange(value.filter((s) => s !== globalSlot));
   }
 
   return (
@@ -42,26 +74,50 @@ export function AvailabilityPicker({ value, onChange }: Props) {
         </View>
       </Pressable>
 
-      <View style={styles.grid}>
-        {DAYS.map((day, dayIndex) => (
-          <View key={day} style={styles.dayColumn}>
-            <Text style={styles.dayLabel}>{day}</Text>
-            {HOURS.map((hour) => {
-              const selected = value.some((s) => s.dayOfWeek === dayIndex && s.startTime === hour);
-              return (
-                <Pressable
-                  key={hour}
-                  accessibilityLabel={`${day} ${hour}`}
-                  onPress={() => toggleSlot(dayIndex, hour)}
-                  style={[styles.cell, selected && styles.cellSelected]}
-                >
-                  <Text style={[styles.cellLabel, selected && styles.cellLabelSelected]}>{hour}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        ))}
-      </View>
+      {recurring ? (
+        <View style={styles.grid}>
+          {DAYS.map((day, dayIndex) => (
+            <View key={day} style={styles.dayColumn}>
+              <Text style={styles.dayLabel}>{day}</Text>
+              {WEEKLY_HOURS.map((hour) => {
+                const selected = value.some((s) => s.recurring && s.dayOfWeek === dayIndex && s.startTime === hour);
+                return (
+                  <Pressable
+                    key={hour}
+                    accessibilityLabel={`${day} ${hour}`}
+                    onPress={() => toggleWeeklySlot(dayIndex, hour)}
+                    style={[styles.cell, selected && styles.cellSelected]}
+                  >
+                    <Text style={[styles.cellLabel, selected && styles.cellLabelSelected]}>{hour}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ))}
+        </View>
+      ) : (
+        <View>
+          <MonthCalendar
+            selectedDate={selectedDate}
+            onSelectDate={setSelectedDate}
+            hasEntries={(date) => oneOffSlots.some((s) => slotDateKey(s) === dateKey(date))}
+          />
+          {selectedDate ? (
+            <View style={{ marginTop: spacing.md }}>
+              <Text style={styles.selectedDateLabel}>
+                {selectedDate.toDateString()} — drag across hours to mark yourself free
+              </Text>
+              <DayHourRangePicker
+                ranges={selectedDateSlots.map(({ slot }) => ({ startTime: slot.startTime, endTime: slot.endTime }))}
+                onAddRange={addRangeForSelectedDate}
+                onRemoveRange={removeOneOffRange}
+              />
+            </View>
+          ) : (
+            <Text style={styles.hint}>Pick a date above to set your free hours for that day.</Text>
+          )}
+        </View>
+      )}
     </View>
   );
 }
@@ -80,4 +136,6 @@ const styles = StyleSheet.create({
   cellSelected: { backgroundColor: colors.coral },
   cellLabel: { fontSize: 10, fontFamily: typography.fontFamilyRegular, color: colors.muted },
   cellLabelSelected: { color: colors.white },
+  selectedDateLabel: { fontFamily: typography.fontFamilyRegular, fontSize: 12, color: colors.muted, marginBottom: spacing.sm },
+  hint: { fontFamily: typography.fontFamilyRegular, fontSize: 12, color: colors.muted, marginTop: spacing.md, textAlign: "center" },
 });

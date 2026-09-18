@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View, Text, StyleSheet, Alert } from "react-native";
+import { View, Text, StyleSheet, Alert, ScrollView } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { AvailabilityPicker } from "../src/components/AvailabilityPicker";
 import { Button } from "../src/components/Button";
@@ -40,15 +40,16 @@ export default function AvailabilityScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
       <Text style={styles.title}>{isWaitlist ? "Choose time & get notified" : "Your availability"}</Text>
       <AvailabilityPicker value={slots} onChange={setSlots} />
       <Button label={isWaitlist ? "Subscribe" : "Save"} onPress={save} disabled={saving} />
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.offWhite, padding: spacing.lg, gap: spacing.lg },
+  screen: { flex: 1, backgroundColor: colors.offWhite },
+  container: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xl },
   title: { fontFamily: typography.fontFamilyBold, fontSize: 20, color: colors.charcoal },
 });

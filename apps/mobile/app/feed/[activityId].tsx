@@ -5,6 +5,7 @@ import { api } from "../../src/api/client";
 import { Card } from "../../src/components/Card";
 import { Badge } from "../../src/components/Badge";
 import { Button } from "../../src/components/Button";
+import { Avatar } from "../../src/components/Avatar";
 import { colors, spacing, typography } from "../../src/theme";
 import type { ActivityPost } from "../../src/api/types";
 
@@ -52,7 +53,10 @@ export default function FeedScreen() {
           <Pressable onPress={() => router.push(`/post/${item.id}`)}>
             <Card style={{ gap: spacing.sm }}>
               <View style={styles.row}>
-                <Text style={styles.name}>{item.author.profile?.displayName ?? "Sport Buddy user"}</Text>
+                <View style={styles.authorRow}>
+                  <Avatar photoUrl={item.author.profile?.photoUrl} size={36} />
+                  <Text style={styles.name}>{item.author.profile?.displayName ?? "Sport Buddy user"}</Text>
+                </View>
                 <Badge label={item.level} />
               </View>
               {item.slots.map((slot) => (
@@ -74,6 +78,7 @@ export default function FeedScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.offWhite },
   row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  authorRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   name: { fontFamily: typography.fontFamily, fontSize: 16, color: colors.charcoal },
   slot: { fontFamily: typography.fontFamilyRegular, color: colors.muted, fontSize: 13 },
   empty: { padding: spacing.xl, alignItems: "center" },

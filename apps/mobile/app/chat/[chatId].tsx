@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { View, Text, FlatList, TextInput, StyleSheet, Pressable, Alert, Modal } from "react-native";
+import { View, Text, FlatList, TextInput, StyleSheet, Pressable, Alert, Modal, ScrollView } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import type { Socket } from "socket.io-client";
 import { api } from "../../src/api/client";
@@ -132,12 +132,12 @@ export default function ChatScreen() {
       )}
 
       <Modal visible={schedulerOpen} animationType="slide">
-        <View style={styles.modalContainer}>
+        <ScrollView style={styles.modalScreen} contentContainerStyle={styles.modalContainer}>
           <Text style={styles.modalTitle}>Schedule Event</Text>
           <AvailabilityPicker value={slots} onChange={setSlots} />
           <Button label="Confirm" onPress={scheduleEvent} />
           <Button label="Cancel" variant="outline" onPress={() => setSchedulerOpen(false)} />
-        </View>
+        </ScrollView>
       </Modal>
 
       <Modal visible={Boolean(completingFirst)} animationType="slide" transparent>
@@ -235,7 +235,8 @@ const styles = StyleSheet.create({
   input: { flex: 1, backgroundColor: colors.white, borderRadius: radii.sm, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md, minHeight: 44 },
   closedBanner: { padding: spacing.md, alignItems: "center" },
   closedText: { fontFamily: typography.fontFamilyRegular, color: colors.muted },
-  modalContainer: { flex: 1, backgroundColor: colors.offWhite, padding: spacing.lg, gap: spacing.md },
+  modalScreen: { flex: 1, backgroundColor: colors.offWhite },
+  modalContainer: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xl },
   modalTitle: { fontFamily: typography.fontFamilyBold, fontSize: 18, color: colors.charcoal },
   formOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
   formCard: { backgroundColor: colors.white, borderTopLeftRadius: radii.lg, borderTopRightRadius: radii.lg, padding: spacing.lg, gap: spacing.md },
