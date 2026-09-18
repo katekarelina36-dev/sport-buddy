@@ -44,6 +44,7 @@ usersRouter.get("/discover", async (req: AuthedRequest, res) => {
       },
     },
     include: {
+      activity: true,
       user: {
         include: {
           profile: true,
