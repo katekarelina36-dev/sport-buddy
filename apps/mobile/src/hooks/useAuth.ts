@@ -69,7 +69,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const isOnboardingComplete = Boolean(
-    profile?.profile?.displayName && profile?.profile?.photoUrl && profile?.profile?.level && profile.activities.length > 0
+    profile?.profile?.displayName &&
+      profile?.profile?.city &&
+      profile?.profile?.dateOfBirth &&
+      profile?.profile?.photoUrl &&
+      profile.activities.length > 0
   );
 
   return createElement(

@@ -17,8 +17,12 @@ export default function EditProfileScreen() {
   const { profile, refresh } = useAuth();
   const [activities, setActivities] = useState<Activity[]>([]);
   const [displayName, setDisplayName] = useState(profile?.profile?.displayName ?? "");
+  const [city, setCity] = useState(profile?.profile?.city ?? "");
   const [bio, setBio] = useState(profile?.profile?.bio ?? "");
   const [selectedActivities, setSelectedActivities] = useState<string[]>(profile?.activities.map((a) => a.activityId) ?? []);
+  const existingLevels: Record<string, "beginner" | "intermediate" | "advanced"> = Object.fromEntries(
+    profile?.activities.map((a) => [a.activityId, a.level]) ?? []
+  );
   const [photoUrl, setPhotoUrl] = useState<string | null>(profile?.profile?.photoUrl ?? null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -57,8 +61,12 @@ export default function EditProfileScreen() {
     try {
       await api.patch("/profile/me", {
         displayName,
+        city,
         bio,
-        preferredActivityIds: selectedActivities,
+        preferredActivities: selectedActivities.map((activityId) => ({
+          activityId,
+          level: existingLevels[activityId] ?? "beginner",
+        })),
       });
       await refresh();
       router.back();
@@ -78,6 +86,9 @@ export default function EditProfileScreen() {
 
       <Text style={styles.label}>Name</Text>
       <TextInput style={styles.input} value={displayName} onChangeText={setDisplayName} placeholder="Display name" />
+
+      <Text style={styles.label}>City</Text>
+      <TextInput style={styles.input} value={city} onChangeText={setCity} placeholder="Your city" />
 
       <Text style={styles.label}>Bio</Text>
       <TextInput style={[styles.input, styles.multiline]} value={bio} onChangeText={setBio} placeholder="Intro bio" multiline />

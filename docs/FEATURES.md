@@ -6,8 +6,8 @@ Reference for the technical requirements doc (F1–F16). "API" paths are relativ
 |---|---|---|
 | F1 Onboarding / profile creation | `routes/auth.ts`, `routes/profile.ts` | `app/auth/index.tsx`, `app/onboarding/index.tsx` |
 | F2 Home: activity selection | `routes/activities.ts` | `app/(tabs)/index.tsx` |
-| F3 Activity Posts feed | `routes/activityPosts.ts` (GET /) | `app/feed/[activityId].tsx` |
-| F4 Activity Post detail | `routes/activityPosts.ts` (GET /:id) | `app/post/[postId].tsx` |
+| F3 Explore Activities feed (user discovery) | `routes/users.ts` (GET /discover) | `app/feed/[activityId].tsx`, `src/components/FilterSheet.tsx` |
+| F4 User profile detail (+ report/block) | `routes/users.ts` (GET /:id, POST /:id/report, POST /:id/block) | `app/user/[userId].tsx` |
 | F5 My Profile | `routes/profile.ts` | `app/(tabs)/profile.tsx` |
 | F6 Availability calendar (shared) | `routes/availability.ts` | `src/components/AvailabilityPicker.tsx`, `app/availability.tsx` |
 | F7 Activity Request flow | `routes/activityRequests.ts` (POST /) | `app/post/[postId].tsx` |
@@ -32,6 +32,18 @@ Reference for the technical requirements doc (F1–F16). "API" paths are relativ
 - **Per-sport skill level in onboarding (F1)** — `UserActivity.level` already exists in the schema (one level per activity per user), but the onboarding wizard only collects a single overall level applied to `UserProfile.level`, and `PATCH /profile/me`'s `preferredActivityIds` creates each `UserActivity` with a hardcoded default level rather than a per-sport choice. Needs: (1) onboarding UI change — after picking sports, show a level picker per selected sport instead of one global level step; (2) `PATCH /profile/me` request shape change from `preferredActivityIds: string[]` to something like `preferredActivities: { activityId, level }[]`; (3) same treatment wherever else a level is set (F5 edit, F4 display already reads per-activity `level` correctly since the schema supports it).
 
 None of these block the core loop (onboarding → post → request → approve → chat → schedule → challenge → complete) from working end-to-end.
+
+## F1/F3/F4 redesign (pixel spec: name/city/DOB onboarding, profile-discovery feed)
+
+A detailed design spec replaced the original F1/F3/F4 flow with a different discovery model: instead of browsing user-created "Activity Posts," F3 now shows cards of *people* who have set availability for a sport, and F4 is their full profile (not a post). Implemented:
+
+- **F1** is now 4 steps: Name+City → Date of Birth (16+ enforced) → Sports with an inline per-sport level + weekly availability picker → Photo. `UserProfile` gained `city`/`dateOfBirth`; the old single profile-wide `level` field is unused (kept in the schema, harmless) in favor of per-sport `UserActivity.level` (closes the earlier per-sport-level backlog item).
+- **`UserAvailability`** gained an optional `activityId` — `null` rows are "general" availability (F5/F9/F12 still use these), non-null rows are per-sport (set during F1, read by F3/F4).
+- **`ActivityRequest`** now supports two shapes: the legacy `{postId, slotId}` (F7's original Activity Post flow — still functional but has no UI entry point anymore since nothing creates an ActivityPost from the app) and a new direct `{targetUserId, activityId}` (F3/F4's "Send Activity Request" button, no post involved). F8's approve/reject/pending queue handles both.
+- **Report/Block** (previously just a backlog line) is now implemented: `UserReport` and `UserBlock` tables, `POST /users/:id/report`, `POST /users/:id/block`; blocked users are excluded from `/users/discover` in both directions. There's no admin-side view of reports yet — they're just recorded.
+- **Not implemented**: the filter sheet's distance slider is UI-only — `/users/discover` doesn't yet apply `distanceKm` (same PostGIS-radius gap noted above).
+
+None of this blocks trying the new flow end-to-end (onboard with a sport+schedule → browse the feed → open a profile → send a request → F8 → chat).
 
 ## Security backlog: user-uploaded photos
 

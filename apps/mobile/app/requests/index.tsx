@@ -39,7 +39,8 @@ export default function RequestsScreen() {
           <Card style={{ gap: spacing.sm }}>
             <Text style={styles.name}>{item.requester.profile?.displayName}</Text>
             <Text style={styles.meta}>
-              {item.activity.name} · {new Date(item.slot.date).toDateString()} {item.slot.startTime}
+              {item.activity.name}
+              {item.slot ? ` · ${new Date(item.slot.date).toDateString()} ${item.slot.startTime}` : ""}
             </Text>
             <View style={styles.row}>
               <Button label="Approve" onPress={() => approve(item.id)} />

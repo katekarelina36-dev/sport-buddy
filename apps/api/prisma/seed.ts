@@ -43,8 +43,9 @@ async function main() {
       profile: {
         create: {
           displayName: "Alice",
+          city: "Warsaw",
+          dateOfBirth: new Date("1996-04-12"),
           bio: "Weekend tennis player, always up for a rally.",
-          level: "intermediate",
           onboardingCompletedAt: new Date(),
         },
       },
@@ -61,13 +62,37 @@ async function main() {
       profile: {
         create: {
           displayName: "Bob",
+          city: "Warsaw",
+          dateOfBirth: new Date("1999-11-02"),
           bio: "Training for a 10k, love an early run.",
-          level: "beginner",
           onboardingCompletedAt: new Date(),
         },
       },
       permissions: { create: { locationGranted: true, calendarGranted: false, pushGranted: true } },
     },
+  });
+
+  const tennis = await prisma.activity.findUniqueOrThrow({ where: { id: "tennis" } });
+  const running = await prisma.activity.findUniqueOrThrow({ where: { id: "running" } });
+
+  await prisma.userActivity.upsert({
+    where: { userId_activityId: { userId: alice.id, activityId: tennis.id } },
+    update: {},
+    create: { userId: alice.id, activityId: tennis.id, level: "intermediate", isPreferred: true },
+  });
+  await prisma.userActivity.upsert({
+    where: { userId_activityId: { userId: bob.id, activityId: running.id } },
+    update: {},
+    create: { userId: bob.id, activityId: running.id, level: "beginner", isPreferred: true },
+  });
+
+  await prisma.userAvailability.createMany({
+    data: [
+      { userId: alice.id, activityId: tennis.id, dayOfWeek: 2, startTime: "18:00", endTime: "20:00", recurring: true },
+      { userId: alice.id, activityId: tennis.id, dayOfWeek: 4, startTime: "18:00", endTime: "20:00", recurring: true },
+      { userId: bob.id, activityId: running.id, dayOfWeek: 6, startTime: "08:00", endTime: "10:00", recurring: true },
+    ],
+    skipDuplicates: true,
   });
 
   console.log(`Seeded ${ACTIVITIES.length} activities and demo users ${alice.email}, ${bob.email} (password: password123)`);

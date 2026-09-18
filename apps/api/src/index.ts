@@ -14,6 +14,7 @@ import { chatsRouter } from "./routes/chats.js";
 import { trainingRouter } from "./routes/training.js";
 import { communitiesRouter } from "./routes/communities.js";
 import { notificationsRouter } from "./routes/notifications.js";
+import { usersRouter } from "./routes/users.js";
 import { attachChatGateway } from "./sockets/chat.js";
 import { startWaitlistMatchingLoop } from "./jobs/matching.js";
 
@@ -35,6 +36,7 @@ app.use("/chats", chatsRouter);
 app.use("/training", trainingRouter);
 app.use("/communities", communitiesRouter);
 app.use("/notifications", notificationsRouter);
+app.use("/users", usersRouter);
 
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });

@@ -7,66 +7,92 @@ import { notify } from "../lib/notify.js";
 export const activityRequestsRouter = Router();
 activityRequestsRouter.use(requireAuth);
 
-// F7: create an Activity Request; unique (requester, post, pending) blocks
-// duplicates, and re-submitting the same tuple is idempotent (survives retries).
+const createSchema = z.union([
+  z.object({ postId: z.string(), slotId: z.string() }),
+  z.object({ targetUserId: z.string(), activityId: z.string() }),
+]);
+
+// F7 (legacy post flow) + F3/F4 (direct flow, sent from a discovered profile
+// straight to that person for a sport, no Activity Post involved). Unique
+// constraints on (requester, post, pending) and (requester, target, activity,
+// pending) block duplicates; re-submitting the same tuple is idempotent.
 activityRequestsRouter.post("/", async (req: AuthedRequest, res) => {
-  const schema = z.object({ postId: z.string(), slotId: z.string() });
-  const parsed = schema.safeParse(req.body);
+  const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.flatten() });
     return;
   }
-  const { postId, slotId } = parsed.data;
 
+  if ("postId" in parsed.data) {
+    const { postId, slotId } = parsed.data;
+    const existing = await prisma.activityRequest.findFirst({ where: { requesterId: req.userId!, postId, status: "pending" } });
+    if (existing) {
+      res.status(200).json(existing);
+      return;
+    }
+    const post = await prisma.activityPost.findUniqueOrThrow({ where: { id: postId } });
+    const request = await prisma.activityRequest.create({
+      data: { requesterId: req.userId!, postId, slotId, activityId: post.activityId, status: "pending" },
+    });
+    notify(post.authorId, "activity_request_received", { message: "You have a new activity request." }, `/requests`);
+    res.status(201).json(request);
+    return;
+  }
+
+  const { targetUserId, activityId } = parsed.data;
   const existing = await prisma.activityRequest.findFirst({
-    where: { requesterId: req.userId!, postId, status: "pending" },
+    where: { requesterId: req.userId!, targetUserId, activityId, status: "pending" },
   });
   if (existing) {
     res.status(200).json(existing);
     return;
   }
-
-  const post = await prisma.activityPost.findUniqueOrThrow({ where: { id: postId } });
   const request = await prisma.activityRequest.create({
-    data: { requesterId: req.userId!, postId, slotId, activityId: post.activityId, status: "pending" },
+    data: { requesterId: req.userId!, targetUserId, activityId, status: "pending" },
   });
-
-  notify(post.authorId, "activity_request_received", { message: "You have a new activity request." }, `/requests`);
+  notify(targetUserId, "activity_request_received", { message: "You have a new activity request." }, `/requests`);
   res.status(201).json(request);
 });
 
-// F8: pending queue for the Activity Post owner.
+function recipientId(request: { post: { authorId: string } | null; targetUserId: string | null }): string {
+  return request.post?.authorId ?? request.targetUserId!;
+}
+
+// F8: pending queue for whoever the request was sent to (post owner, or the
+// directly-targeted user).
 activityRequestsRouter.get("/pending", async (req: AuthedRequest, res) => {
   const requests = await prisma.activityRequest.findMany({
-    where: { status: "pending", post: { authorId: req.userId! } },
+    where: { status: "pending", OR: [{ post: { authorId: req.userId! } }, { targetUserId: req.userId! }] },
     include: { requester: { include: { profile: true } }, slot: true, activity: true, post: true },
     orderBy: { createdAt: "desc" },
   });
   res.json(requests);
 });
 
-// F8: approve — transactional: request -> approved, slot -> filled, chat created
-// (reopening a previously-closed chat with the same pair instead of duplicating),
-// post -> inactive once all slots are filled, notification dispatched async.
+// F8: approve — transactional: request -> approved, (post flow only) slot ->
+// filled + post inactive once full, chat created (reopening a previously-
+// closed chat with the same pair instead of duplicating), notification async.
 activityRequestsRouter.post("/:id/approve", async (req: AuthedRequest, res) => {
   const request = await prisma.activityRequest.findUniqueOrThrow({
     where: { id: req.params.id },
     include: { post: true },
   });
-  if (request.post.authorId !== req.userId) {
-    res.status(403).json({ error: "Not the post owner" });
+  if (recipientId(request) !== req.userId) {
+    res.status(403).json({ error: "Not the request recipient" });
     return;
   }
 
-  const [userAId, userBId] = [request.post.authorId, request.requesterId].sort();
+  const [userAId, userBId] = [recipientId(request), request.requesterId].sort();
 
   const chat = await prisma.$transaction(async (tx) => {
     await tx.activityRequest.update({ where: { id: request.id }, data: { status: "approved", decidedAt: new Date() } });
-    await tx.activityPostSlot.update({ where: { id: request.slotId }, data: { isFilled: true } });
 
-    const remainingOpenSlots = await tx.activityPostSlot.count({ where: { postId: request.postId, isFilled: false } });
-    if (remainingOpenSlots === 0) {
-      await tx.activityPost.update({ where: { id: request.postId }, data: { status: "inactive" } });
+    if (request.postId && request.slotId) {
+      await tx.activityPostSlot.update({ where: { id: request.slotId }, data: { isFilled: true } });
+      const remainingOpenSlots = await tx.activityPostSlot.count({ where: { postId: request.postId, isFilled: false } });
+      if (remainingOpenSlots === 0) {
+        await tx.activityPost.update({ where: { id: request.postId }, data: { status: "inactive" } });
+      }
     }
 
     const existingChat = await tx.chat.findFirst({
@@ -102,8 +128,8 @@ activityRequestsRouter.post("/:id/reject", async (req: AuthedRequest, res) => {
     where: { id: req.params.id },
     include: { post: true },
   });
-  if (request.post.authorId !== req.userId) {
-    res.status(403).json({ error: "Not the post owner" });
+  if (recipientId(request) !== req.userId) {
+    res.status(403).json({ error: "Not the request recipient" });
     return;
   }
   await prisma.activityRequest.update({ where: { id: request.id }, data: { status: "rejected", decidedAt: new Date() } });

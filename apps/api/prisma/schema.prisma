@@ -87,6 +87,7 @@ model User {
   availability       UserAvailability[]
   activityPosts      ActivityPost[]         @relation("PostAuthor")
   activityRequests   ActivityRequest[]      @relation("Requester")
+  requestsReceived   ActivityRequest[]      @relation("RequestTarget")
   media              MediaAsset[]
   chatsAsA           Chat[]                 @relation("ChatUserA")
   chatsAsB           Chat[]                 @relation("ChatUserB")
@@ -99,12 +100,39 @@ model User {
   matchSubscriptions MatchSubscription[]
   notifications      Notification[]
   pushTokens         PushToken[]
+  blocksMade         UserBlock[]          @relation("Blocker")
+  blocksReceived     UserBlock[]          @relation("Blocked")
+  reportsMade        UserReport[]         @relation("Reporter")
+  reportsReceived    UserReport[]         @relation("Reported")
+}
+
+// F4 safety requirement: report/block a user.
+model UserBlock {
+  blockerId String
+  blocker   User     @relation("Blocker", fields: [blockerId], references: [id])
+  blockedId String
+  blocked   User     @relation("Blocked", fields: [blockedId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@id([blockerId, blockedId])
+}
+
+model UserReport {
+  id         String   @id @default(uuid())
+  reporterId String
+  reporter   User     @relation("Reporter", fields: [reporterId], references: [id])
+  reportedId String
+  reported   User     @relation("Reported", fields: [reportedId], references: [id])
+  reason     String
+  createdAt  DateTime @default(now())
 }
 
 model UserProfile {
   userId             String   @id
   user               User     @relation(fields: [userId], references: [id])
   displayName        String
+  city               String?
+  dateOfBirth        DateTime?
   photoUrl           String?
   bio                String?
   level              SkillLevel @default(beginner)
@@ -132,6 +160,7 @@ model Activity {
   sortOrder Int      @default(0)
 
   userActivities    UserActivity[]
+  userAvailability  UserAvailability[]
   activityPosts     ActivityPost[]
   activityPostSlots ActivityPostSlot[]
   activityRequests  ActivityRequest[]
@@ -154,14 +183,18 @@ model UserActivity {
 }
 
 model UserAvailability {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   userId     String
-  user       User     @relation(fields: [userId], references: [id])
-  dayOfWeek  Int?     // 0-6, used when recurring = true
+  user       User      @relation(fields: [userId], references: [id])
+  activityId String?   // null = general availability; set = specific to one sport (F1 step 3, F3/F4 display)
+  activity   Activity? @relation(fields: [activityId], references: [id])
+  dayOfWeek  Int?      // 0-6, used when recurring = true
   date       DateTime? // used when recurring = false
-  startTime  String   // "HH:mm", stored in UTC
+  startTime  String    // "HH:mm", stored in UTC
   endTime    String
-  recurring  Boolean  @default(false)
+  recurring  Boolean   @default(false)
+
+  @@index([activityId, dayOfWeek])
 }
 
 // ------------------------------------------------------------------
@@ -206,10 +239,15 @@ model ActivityRequest {
   id          String                 @id @default(uuid())
   requesterId String
   requester   User                   @relation("Requester", fields: [requesterId], references: [id])
-  postId      String
-  post        ActivityPost           @relation(fields: [postId], references: [id])
-  slotId      String
-  slot        ActivityPostSlot       @relation(fields: [slotId], references: [id])
+  // Legacy post-based flow (F7/F8 v1): request against a specific Activity Post slot.
+  postId      String?
+  post        ActivityPost?          @relation(fields: [postId], references: [id])
+  slotId      String?
+  slot        ActivityPostSlot?      @relation(fields: [slotId], references: [id])
+  // Direct flow (F3/F4): request sent straight to a person discovered via
+  // their per-sport availability, with no Activity Post involved.
+  targetUserId String?
+  targetUser   User?                 @relation("RequestTarget", fields: [targetUserId], references: [id])
   activityId  String
   activity    Activity               @relation(fields: [activityId], references: [id])
   status      ActivityRequestStatus  @default(pending)
@@ -219,6 +257,7 @@ model ActivityRequest {
   chat Chat?
 
   @@unique([requesterId, postId, status])
+  @@unique([requesterId, targetUserId, activityId, status])
 }
 
 // ------------------------------------------------------------------

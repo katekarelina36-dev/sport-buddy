@@ -1,18 +1,37 @@
 import { useEffect, useState } from "react";
-import { View, Text, TextInput, StyleSheet, Pressable, ScrollView, ActivityIndicator, Image, Alert } from "react-native";
+import { View, Text, TextInput, StyleSheet, Pressable, ScrollView, ActivityIndicator, Image, Alert, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { Button } from "../../src/components/Button";
 import { colors, spacing, typography, radii } from "../../src/theme";
 import { api, uploadPhoto } from "../../src/api/client";
 import { useAuth } from "../../src/hooks/useAuth";
+import { calculateAge, defaultDateOfBirth, MIN_ONBOARDING_AGE } from "../../src/utils/age";
 import type { Activity, SkillLevel } from "../../src/api/types";
 
-const STEPS = ["name", "photo", "sports", "level", "bio", "permissions"] as const;
+const STEPS = ["name_city", "dob", "sports", "photo"] as const;
+const DAY_LABELS = ["M", "T", "W", "T", "F", "S", "S"]; // Mon..Sun, per spec
+const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]; // Mon(1)..Sun(0), matching Date.getDay()
+const LEVELS: SkillLevel[] = ["beginner", "intermediate", "advanced"];
 
-// F1: Onboarding wizard. Mandatory profile completion (name, photo, >=1
-// activity, level) gates reaching Home; location + calendar permissions are
-// soft-asks, deferrable, but required before F12 (calendar sync) works.
+interface DayAvailability {
+  startTime: string; // "HH:mm"
+  endTime: string;
+}
+
+interface SportSelection {
+  activityId: string;
+  level: SkillLevel;
+  days: Record<number, DayAvailability>; // keyed by dayOfWeek (0-6)
+}
+
+// F1: 4-step onboarding wizard (Name+City, Date of Birth, Sports w/ per-sport
+// level+availability, Photo). Mandatory fields gate reaching Home; progress
+// bar reflects step (25/50/75/100%). Per spec, sport detail expands inline
+// below its card — implemented here as a full-width block beneath the grid
+// per selected sport (keeps the grid a clean 2-column layout on small screens
+// instead of each card expanding in place, which would misalign siblings).
 export default function OnboardingScreen() {
   const router = useRouter();
   const { refresh } = useAuth();
@@ -21,9 +40,10 @@ export default function OnboardingScreen() {
   const [saving, setSaving] = useState(false);
 
   const [displayName, setDisplayName] = useState("");
-  const [bio, setBio] = useState("");
-  const [level, setLevel] = useState<SkillLevel>("beginner");
-  const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
+  const [city, setCity] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState<Date>(defaultDateOfBirth());
+  const [showDatePicker, setShowDatePicker] = useState(Platform.OS === "ios");
+  const [sports, setSports] = useState<Record<string, SportSelection>>({});
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
@@ -33,6 +53,43 @@ export default function OnboardingScreen() {
 
   const step = STEPS[stepIndex];
   const isLast = stepIndex === STEPS.length - 1;
+  const progressPct = ((stepIndex + 1) / STEPS.length) * 100;
+
+  function toggleSport(activityId: string) {
+    setSports((prev) => {
+      const next = { ...prev };
+      if (next[activityId]) {
+        delete next[activityId];
+      } else {
+        next[activityId] = { activityId, level: "beginner", days: {} };
+      }
+      return next;
+    });
+  }
+
+  function setSportLevel(activityId: string, level: SkillLevel) {
+    setSports((prev) => ({ ...prev, [activityId]: { ...prev[activityId], level } }));
+  }
+
+  function toggleSportDay(activityId: string, dayOfWeek: number) {
+    setSports((prev) => {
+      const sport = prev[activityId];
+      const days = { ...sport.days };
+      if (days[dayOfWeek]) {
+        delete days[dayOfWeek];
+      } else {
+        days[dayOfWeek] = { startTime: "18:00", endTime: "20:00" };
+      }
+      return { ...prev, [activityId]: { ...sport, days } };
+    });
+  }
+
+  function setSportDayTime(activityId: string, dayOfWeek: number, field: "startTime" | "endTime", value: string) {
+    setSports((prev) => {
+      const sport = prev[activityId];
+      return { ...prev, [activityId]: { ...sport, days: { ...sport.days, [dayOfWeek]: { ...sport.days[dayOfWeek], [field]: value } } } };
+    });
+  }
 
   async function pickPhoto() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -42,7 +99,7 @@ export default function OnboardingScreen() {
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
-      quality: 0.6, // client-side compression toward the spec's <=2MB upload target
+      quality: 0.6,
       allowsEditing: true,
       aspect: [1, 1],
     });
@@ -59,26 +116,50 @@ export default function OnboardingScreen() {
     }
   }
 
+  function canContinue(): boolean {
+    if (step === "name_city") return displayName.trim().length > 0 && city.trim().length > 0;
+    if (step === "dob") return calculateAge(dateOfBirth) >= MIN_ONBOARDING_AGE;
+    if (step === "sports") return Object.keys(sports).length > 0;
+    return true;
+  }
+
   async function next() {
+    if (step === "dob" && calculateAge(dateOfBirth) < MIN_ONBOARDING_AGE) {
+      Alert.alert("Must be 16 or older", `You need to be at least ${MIN_ONBOARDING_AGE} to use Sport Buddy.`);
+      return;
+    }
     if (!isLast) {
       setStepIndex((i) => i + 1);
       return;
     }
     if (!photoUri) {
       Alert.alert("Add a photo first", "A profile photo is required before you can finish onboarding.");
-      setStepIndex(STEPS.indexOf("photo"));
       return;
     }
     setSaving(true);
     try {
       await api.patch("/profile/me", {
         displayName,
-        bio,
-        level,
-        preferredActivityIds: selectedActivities,
+        city,
+        dateOfBirth: dateOfBirth.toISOString(),
+        preferredActivities: Object.values(sports).map((s) => ({ activityId: s.activityId, level: s.level })),
       });
+      // Per-sport availability (F1 step 3) — saved separately, scoped by ?activityId=.
+      for (const sport of Object.values(sports)) {
+        const slots = Object.entries(sport.days).map(([dayOfWeek, time]) => ({
+          dayOfWeek: Number(dayOfWeek),
+          startTime: time.startTime,
+          endTime: time.endTime,
+          recurring: true,
+        }));
+        if (slots.length > 0) {
+          await api.put(`/availability?activityId=${sport.activityId}`, slots);
+        }
+      }
       await refresh();
       router.replace("/(tabs)");
+    } catch (err) {
+      Alert.alert("Couldn't finish onboarding", (err as Error).message);
     } finally {
       setSaving(false);
     }
@@ -87,128 +168,275 @@ export default function OnboardingScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.progressTrack}>
-        {STEPS.map((_, i) => (
-          <View key={i} style={[styles.progressDot, i <= stepIndex && styles.progressDotActive]} />
-        ))}
+        <View style={[styles.progressFill, { width: `${progressPct}%` }]} />
+      </View>
+
+      <View style={styles.headerRow}>
+        {stepIndex > 0 ? (
+          <Pressable accessibilityLabel="Back" style={styles.backButton} onPress={() => setStepIndex((i) => i - 1)}>
+            <Text style={styles.backArrow}>←</Text>
+          </Pressable>
+        ) : (
+          <View style={styles.backButton} />
+        )}
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        {step === "name" && (
+        {step === "name_city" && (
           <>
-            <Text style={styles.heading}>What should we call you?</Text>
-            <TextInput style={styles.input} placeholder="Display name" value={displayName} onChangeText={setDisplayName} />
+            <Text style={styles.title}>Tell us about yourself</Text>
+            <Text style={styles.label}>Your name</Text>
+            <TextInput style={styles.input} placeholder="Enter your name" value={displayName} onChangeText={setDisplayName} />
+            <Text style={[styles.label, { marginTop: spacing.md }]}>Your city</Text>
+            <TextInput style={styles.input} placeholder="Enter your city" value={city} onChangeText={setCity} />
           </>
         )}
 
-        {step === "photo" && (
+        {step === "dob" && (
           <>
-            <Text style={styles.heading}>Add a photo</Text>
-            <Pressable style={styles.photoPlaceholder} onPress={pickPhoto} disabled={uploadingPhoto}>
-              {photoUri ? (
-                <Image source={{ uri: photoUri }} style={styles.photoPreview} />
-              ) : (
-                <Text style={{ color: colors.muted }}>{uploadingPhoto ? "Uploading…" : "Tap to choose a photo"}</Text>
+            <Text style={styles.title}>When were you born?</Text>
+            <Text style={styles.subtitle}>We use this to show your age on your profile</Text>
+            <View style={styles.datePickerWrap}>
+              {(showDatePicker || Platform.OS === "ios") && (
+                <DateTimePicker
+                  value={dateOfBirth}
+                  mode="date"
+                  display={Platform.OS === "ios" ? "spinner" : "default"}
+                  maximumDate={(() => {
+                    const max = new Date();
+                    max.setFullYear(max.getFullYear() - MIN_ONBOARDING_AGE);
+                    return max;
+                  })()}
+                  onChange={(_event, date) => {
+                    if (Platform.OS === "android") setShowDatePicker(false);
+                    if (date) setDateOfBirth(date);
+                  }}
+                />
               )}
-            </Pressable>
+              {Platform.OS === "android" && !showDatePicker && (
+                <Button label={dateOfBirth.toDateString()} variant="outline" onPress={() => setShowDatePicker(true)} />
+              )}
+            </View>
           </>
         )}
 
         {step === "sports" && (
           <>
-            <Text style={styles.heading}>Pick your sports</Text>
-            <View style={styles.chipRow}>
+            <Text style={styles.title}>What sports do you play?</Text>
+            <Text style={styles.subtitle}>Select all that apply. You can add more later.</Text>
+            <View style={styles.sportGrid}>
               {activities.map((a) => {
-                const selected = selectedActivities.includes(a.id);
+                const selected = Boolean(sports[a.id]);
                 return (
-                  <Pressable
-                    key={a.id}
-                    style={[styles.chip, selected && styles.chipSelected]}
-                    onPress={() =>
-                      setSelectedActivities((prev) => (selected ? prev.filter((id) => id !== a.id) : [...prev, a.id]))
-                    }
-                  >
-                    <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>{a.name}</Text>
+                  <Pressable key={a.id} style={[styles.sportCard, selected && styles.sportCardSelected]} onPress={() => toggleSport(a.id)}>
+                    <Text style={styles.sportIcon}>🏅</Text>
+                    <Text style={styles.sportName}>{a.name}</Text>
                   </Pressable>
                 );
               })}
             </View>
+
+            {Object.values(sports).map((sport) => {
+              const activity = activities.find((a) => a.id === sport.activityId);
+              return (
+                <View key={sport.activityId} style={styles.sportDetailCard}>
+                  <Text style={styles.sportDetailTitle}>{activity?.name}</Text>
+
+                  <Text style={styles.detailLabel}>Your level</Text>
+                  <View style={styles.pillRow}>
+                    {LEVELS.map((level) => (
+                      <Pressable
+                        key={level}
+                        style={[styles.levelPill, sport.level === level && styles.levelPillSelected]}
+                        onPress={() => setSportLevel(sport.activityId, level)}
+                      >
+                        <Text style={[styles.levelPillLabel, sport.level === level && styles.levelPillLabelSelected]}>{level}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+
+                  <Text style={[styles.detailLabel, { marginTop: spacing.md }]}>Availability</Text>
+                  <Text style={styles.helperText}>Fill in your availability to appear in partner search for this sport.</Text>
+                  <View style={styles.dayCircleRow}>
+                    {DAY_ORDER.map((dayOfWeek, i) => {
+                      const active = Boolean(sport.days[dayOfWeek]);
+                      return (
+                        <Pressable
+                          key={dayOfWeek}
+                          style={[styles.dayCircle, active && styles.dayCircleActive]}
+                          onPress={() => toggleSportDay(sport.activityId, dayOfWeek)}
+                        >
+                          <Text style={[styles.dayCircleLabel, active && styles.dayCircleLabelActive]}>{DAY_LABELS[i]}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+
+                  {DAY_ORDER.filter((d) => sport.days[d]).map((dayOfWeek, idx) => (
+                    <DayTimeRow
+                      key={dayOfWeek}
+                      dayLabel={["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][dayOfWeek]}
+                      time={sport.days[dayOfWeek]}
+                      onChange={(field, value) => setSportDayTime(sport.activityId, dayOfWeek, field, value)}
+                    />
+                  ))}
+                </View>
+              );
+            })}
           </>
         )}
 
-        {step === "level" && (
+        {step === "photo" && (
           <>
-            <Text style={styles.heading}>Your activity level</Text>
-            <View style={styles.chipRow}>
-              {(["beginner", "intermediate", "advanced"] as SkillLevel[]).map((l) => (
-                <Pressable key={l} style={[styles.chip, level === l && styles.chipSelected]} onPress={() => setLevel(l)}>
-                  <Text style={[styles.chipLabel, level === l && styles.chipLabelSelected]}>{l}</Text>
-                </Pressable>
-              ))}
-            </View>
-          </>
-        )}
-
-        {step === "bio" && (
-          <>
-            <Text style={styles.heading}>Tell people about yourself</Text>
-            <TextInput style={[styles.input, styles.multiline]} placeholder="Intro bio" multiline value={bio} onChangeText={setBio} />
-          </>
-        )}
-
-        {step === "permissions" && (
-          <>
-            <Text style={styles.heading}>Almost there</Text>
-            <Text style={styles.body}>
-              Sport Buddy uses your location to find nearby partners, and your calendar to sync scheduled events. You can
-              grant these now or later from your profile.
-            </Text>
-            <Button
-              label="Allow location & calendar"
-              variant="secondary"
-              onPress={() => api.patch("/profile/me/permissions", { locationGranted: true, calendarGranted: true })}
-            />
+            <Text style={styles.title}>Add your photo</Text>
+            <Text style={styles.subtitle}>Help others recognize you</Text>
+            <Pressable style={styles.photoCircle} onPress={pickPhoto} disabled={uploadingPhoto}>
+              {photoUri ? (
+                <Image source={{ uri: photoUri }} style={styles.photoImage} />
+              ) : (
+                <Text style={styles.photoIcon}>{uploadingPhoto ? "…" : "📷"}</Text>
+              )}
+            </Pressable>
+            <Pressable onPress={pickPhoto} disabled={uploadingPhoto}>
+              <Text style={styles.choosePhotoLabel}>{uploadingPhoto ? "Uploading…" : "Choose photo"}</Text>
+            </Pressable>
           </>
         )}
       </ScrollView>
 
-      <Button label={isLast ? (saving ? "Saving…" : "Finish") : "Continue"} onPress={next} disabled={saving} />
+      <Button
+        label={isLast ? (saving ? "Saving…" : "Complete profile") : "Continue"}
+        onPress={next}
+        disabled={saving || !canContinue()}
+      />
       {saving && <ActivityIndicator style={{ marginTop: spacing.sm }} />}
     </View>
   );
 }
 
+function DayTimeRow({
+  dayLabel,
+  time,
+  onChange,
+}: {
+  dayLabel: string;
+  time: DayAvailability;
+  onChange: (field: "startTime" | "endTime", value: string) => void;
+}) {
+  const [openField, setOpenField] = useState<"startTime" | "endTime" | null>(null);
+
+  function toDate(hhmm: string): Date {
+    const [h, m] = hhmm.split(":").map(Number);
+    const d = new Date();
+    d.setHours(h, m, 0, 0);
+    return d;
+  }
+
+  return (
+    <View style={styles.dayTimeRow}>
+      <Text style={styles.dayTimeLabel}>{dayLabel}</Text>
+      <Pressable style={styles.timeField} onPress={() => setOpenField("startTime")}>
+        <Text style={styles.timeFieldText}>{time.startTime}</Text>
+      </Pressable>
+      <Text style={styles.arrow}>→</Text>
+      <Pressable style={styles.timeField} onPress={() => setOpenField("endTime")}>
+        <Text style={styles.timeFieldText}>{time.endTime}</Text>
+      </Pressable>
+      {openField && (
+        <DateTimePicker
+          value={toDate(time[openField])}
+          mode="time"
+          display={Platform.OS === "ios" ? "spinner" : "default"}
+          onChange={(_event, date) => {
+            if (Platform.OS === "android") setOpenField(null);
+            if (date) {
+              const hh = String(date.getHours()).padStart(2, "0");
+              const mm = String(date.getMinutes()).padStart(2, "0");
+              onChange(openField, `${hh}:${mm}`);
+            }
+          }}
+        />
+      )}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.offWhite, padding: spacing.lg },
-  progressTrack: { flexDirection: "row", gap: spacing.xs, justifyContent: "center", marginBottom: spacing.lg },
-  progressDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.border },
-  progressDotActive: { backgroundColor: colors.sageDark },
-  content: { flexGrow: 1, gap: spacing.md },
-  heading: { fontFamily: typography.fontFamilyBold, fontSize: 22, color: colors.charcoal },
-  body: { fontFamily: typography.fontFamilyRegular, color: colors.muted },
+  container: { flex: 1, backgroundColor: colors.offWhite, padding: spacing.md },
+  progressTrack: { height: 4, backgroundColor: colors.border, borderRadius: 2, overflow: "hidden" },
+  progressFill: { height: 4, backgroundColor: colors.sageDark },
+  headerRow: { height: 44, justifyContent: "center", marginTop: spacing.sm },
+  backButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  backArrow: { fontSize: 22, color: colors.charcoal },
+  content: { flexGrow: 1, paddingHorizontal: spacing.sm },
+  title: { fontFamily: typography.fontFamilyBold, fontSize: 20, color: colors.charcoal, textAlign: "center", marginTop: spacing.lg },
+  subtitle: { fontFamily: typography.fontFamilyRegular, fontSize: 14, color: colors.muted, textAlign: "center", marginTop: spacing.xs, marginBottom: spacing.lg },
+  label: { fontFamily: typography.fontFamilyRegular, fontSize: 14, color: colors.muted, marginBottom: spacing.xs, marginTop: spacing.lg },
   input: {
     backgroundColor: colors.white,
     borderRadius: radii.sm,
     borderWidth: 1,
     borderColor: colors.border,
     paddingHorizontal: spacing.md,
-    minHeight: 44,
+    minHeight: 52,
     fontFamily: typography.fontFamilyRegular,
+    fontSize: 16,
+    color: colors.charcoal,
   },
-  multiline: { minHeight: 100, paddingTop: spacing.sm, textAlignVertical: "top" },
-  photoPlaceholder: {
-    height: 160,
-    borderRadius: radii.lg,
+  datePickerWrap: { alignItems: "center", marginTop: spacing.lg },
+  sportGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  sportCard: {
+    width: "47%",
+    height: 56,
     backgroundColor: colors.white,
-    borderWidth: 1,
+    borderRadius: radii.sm,
+    borderWidth: 1.5,
     borderColor: colors.border,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: spacing.md,
+    gap: spacing.sm,
+  },
+  sportCardSelected: { borderColor: colors.coral, backgroundColor: "#FFF5F3" },
+  sportIcon: { fontSize: 20 },
+  sportName: { fontFamily: typography.fontFamily, fontSize: 15, color: colors.charcoal },
+  sportDetailCard: {
+    backgroundColor: "#FFF5F3",
+    borderWidth: 1.5,
+    borderColor: colors.coral,
+    borderRadius: radii.sm,
+    padding: spacing.md,
+    marginTop: spacing.sm,
+  },
+  sportDetailTitle: { fontFamily: typography.fontFamilyBold, fontSize: 15, color: colors.charcoal, marginBottom: spacing.sm },
+  detailLabel: { fontFamily: typography.fontFamilyRegular, fontSize: 13, color: colors.muted },
+  helperText: { fontFamily: typography.fontFamilyRegular, fontSize: 12, color: colors.muted, fontStyle: "italic", marginTop: 2 },
+  pillRow: { flexDirection: "row", gap: spacing.xs, marginTop: spacing.sm, flexWrap: "wrap" },
+  levelPill: { height: 36, paddingHorizontal: 12, borderRadius: 18, borderWidth: 1, borderColor: colors.border, justifyContent: "center", backgroundColor: colors.white },
+  levelPillSelected: { backgroundColor: colors.coral, borderColor: colors.coral },
+  levelPillLabel: { fontFamily: typography.fontFamily, fontSize: 13, color: colors.charcoal },
+  levelPillLabelSelected: { color: colors.white },
+  dayCircleRow: { flexDirection: "row", gap: 6, marginTop: spacing.sm },
+  dayCircle: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center", backgroundColor: colors.white },
+  dayCircleActive: { backgroundColor: colors.coral, borderColor: colors.coral },
+  dayCircleLabel: { fontFamily: typography.fontFamily, fontSize: 13, color: colors.charcoal },
+  dayCircleLabelActive: { color: colors.white },
+  dayTimeRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginTop: spacing.sm },
+  dayTimeLabel: { fontFamily: typography.fontFamily, fontSize: 13, color: colors.charcoal, width: 36 },
+  timeField: { height: 36, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white, justifyContent: "center" },
+  timeFieldText: { fontFamily: typography.fontFamilyRegular, fontSize: 13, color: colors.charcoal },
+  arrow: { color: colors.muted },
+  photoCircle: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: colors.border,
+    alignSelf: "center",
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
   },
-  photoPreview: { width: "100%", height: "100%" },
-  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-  chip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: radii.lg, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, minHeight: 44, justifyContent: "center" },
-  chipSelected: { backgroundColor: colors.coral, borderColor: colors.coral },
-  chipLabel: { fontFamily: typography.fontFamily, color: colors.charcoal },
-  chipLabelSelected: { color: colors.white },
+  photoImage: { width: "100%", height: "100%" },
+  photoIcon: { fontSize: 28 },
+  choosePhotoLabel: { fontFamily: typography.fontFamily, fontSize: 15, color: colors.coral, textAlign: "center", marginTop: spacing.md },
 });

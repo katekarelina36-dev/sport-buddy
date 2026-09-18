@@ -2,9 +2,10 @@ export type SkillLevel = "beginner" | "intermediate" | "advanced";
 
 export interface UserProfile {
   displayName: string;
+  city: string | null;
+  dateOfBirth: string | null;
   photoUrl: string | null;
   bio: string | null;
-  level: SkillLevel;
   successfulTrainingsCount: number;
   onboardingCompletedAt: string | null;
 }
@@ -42,6 +43,22 @@ export interface AvailabilitySlot {
   recurring: boolean;
 }
 
+// F3/F4: a user discoverable via the "Explore Activities" feed for one sport.
+export interface PublicUser {
+  id: string;
+  profile: UserProfile | null;
+  activities: UserActivity[];
+  availability: AvailabilitySlot[];
+  communityMembers: { community: { id: string; name: string; iconUrl: string | null } }[];
+  alreadyRequested?: boolean;
+}
+
+export interface DiscoverEntry {
+  user: PublicUser;
+  primaryActivity: UserActivity & { id: string };
+  alreadyRequested: boolean;
+}
+
 export interface ActivityPostSlot {
   id: string;
   date: string;
@@ -63,13 +80,14 @@ export interface ActivityPost {
 
 export interface ActivityRequest {
   id: string;
-  postId: string;
-  slotId: string;
+  postId: string | null;
+  slotId: string | null;
+  targetUserId: string | null;
   status: "pending" | "approved" | "rejected";
   requester: { id: string; profile: UserProfile | null };
-  slot: ActivityPostSlot;
+  slot: ActivityPostSlot | null;
   activity: Activity;
-  post: ActivityPost;
+  post: ActivityPost | null;
 }
 
 export interface ChatSummary {

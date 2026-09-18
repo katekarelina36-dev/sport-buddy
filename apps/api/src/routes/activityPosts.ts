@@ -61,7 +61,7 @@ activityPostsRouter.get("/", async (req: AuthedRequest, res) => {
       activityId,
       status: "active",
       authorId: { not: req.userId! },
-      id: { notIn: alreadyActioned.map((r) => r.postId) },
+      id: { notIn: alreadyActioned.map((r) => r.postId).filter((id): id is string => id !== null) },
       ...(level ? { level } : {}),
     },
     include: {
