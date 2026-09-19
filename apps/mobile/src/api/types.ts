@@ -70,6 +70,9 @@ export interface ActivityRequest {
   slot: ActivityPostSlot;
   activity: Activity;
   post: ActivityPost;
+  // Only present on entries returned by GET /activity-requests/sent, and only
+  // once approved — the chat the approval created/reopened.
+  chatId?: string | null;
 }
 
 export interface ChatSummary {

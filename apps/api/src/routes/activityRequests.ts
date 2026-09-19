@@ -45,6 +45,36 @@ activityRequestsRouter.get("/pending", async (req: AuthedRequest, res) => {
   res.json(requests);
 });
 
+// F8: "sent" queue for the requester — their own requests, pending or approved
+// (rejected ones simply aren't returned, so they fall out of this tab on their own).
+// Approved requests carry the chatId the approval created/reopened, so the client
+// can offer a "Start a chat" CTA straight from here.
+activityRequestsRouter.get("/sent", async (req: AuthedRequest, res) => {
+  const requests = await prisma.activityRequest.findMany({
+    where: { requesterId: req.userId!, status: { in: ["pending", "approved"] } },
+    include: {
+      post: { include: { author: { include: { profile: true } } } },
+      slot: true,
+      activity: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const withChat = await Promise.all(
+    requests.map(async (request) => {
+      if (request.status !== "approved") return { ...request, chatId: null };
+      const [userAId, userBId] = [request.post.authorId, request.requesterId].sort();
+      const chat = await prisma.chat.findFirst({
+        where: { userAId, userBId, activityId: request.activityId },
+        select: { id: true },
+      });
+      return { ...request, chatId: chat?.id ?? null };
+    }),
+  );
+
+  res.json(withChat);
+});
+
 // F8: approve — transactional: request -> approved, slot -> filled, chat created
 // (reopening a previously-closed chat with the same pair instead of duplicating),
 // post -> inactive once all slots are filled, notification dispatched async.
