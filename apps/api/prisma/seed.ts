@@ -173,6 +173,137 @@ async function main() {
     }
   }
 
+  // More seed data: chats already existing between users, so the Chats tab
+  // isn't empty on first launch, plus a fleshed-out Alice/Bob history.
+  async function findDemoUser(name: string) {
+    return prisma.user.findUniqueOrThrow({ where: { email: `${slug(name)}@example.com` } });
+  }
+
+  async function seedApprovedChat(opts: { requesterId: string; recipientId: string; activityId: string; greeting: string }): Promise<string> {
+    const { requesterId, recipientId, activityId, greeting } = opts;
+    const [userAId, userBId] = [requesterId, recipientId].sort();
+    const existingChat = await prisma.chat.findUnique({ where: { userAId_userBId: { userAId, userBId } } });
+    const existingSport = existingChat
+      ? await prisma.chatSport.findUnique({ where: { chatId_activityId: { chatId: existingChat.id, activityId } } })
+      : null;
+    if (existingChat && existingSport) return existingChat.id;
+
+    const request = await prisma.activityRequest.create({
+      data: { requesterId, targetUserId: recipientId, activityId, status: "approved", decidedAt: new Date() },
+    });
+
+    if (existingChat) {
+      await prisma.chatSport.create({ data: { chatId: existingChat.id, activityId, activityRequestId: request.id } });
+      return existingChat.id;
+    }
+
+    const chat = await prisma.chat.create({
+      data: {
+        userAId,
+        userBId,
+        originatingRequestId: request.id,
+        sports: { create: { activityId, activityRequestId: request.id } },
+        messages: { create: { type: "template", body: greeting } },
+      },
+    });
+    return chat.id;
+  }
+
+  // A couple of pre-existing chats among the Round 2 demo profiles, matched
+  // on the sport they already share with Alice/Bob, so the Chats list has
+  // more than one conversation to show.
+  const annaKowalska = await findDemoUser("Anna Kowalska");
+  const piotrNowak = await findDemoUser("Piotr Nowak");
+  await seedApprovedChat({
+    requesterId: alice.id,
+    recipientId: annaKowalska.id,
+    activityId: tennis.id,
+    greeting: "Hey! Fancy a tennis match this week?",
+  });
+  await seedApprovedChat({
+    requesterId: bob.id,
+    recipientId: piotrNowak.id,
+    activityId: running.id,
+    greeting: "Hey! I'm training for a 10k too, want to run together sometime?",
+  });
+
+  // Alice & Bob: matched on both Tennis and Volleyball, with a shared history
+  // of 3 completed sessions per sport, leaving both sports free to schedule a
+  // new Event (nothing is left "scheduled").
+  const volleyball = await prisma.activity.findUniqueOrThrow({ where: { id: "volleyball" } });
+
+  for (const [user, activityId] of [
+    [alice, tennis.id],
+    [alice, volleyball.id],
+    [bob, tennis.id],
+    [bob, volleyball.id],
+  ] as const) {
+    await prisma.userActivity.upsert({
+      where: { userId_activityId: { userId: user.id, activityId } },
+      update: { level: "intermediate", isPreferred: true },
+      create: { userId: user.id, activityId, level: "intermediate", isPreferred: true },
+    });
+  }
+  await prisma.userAvailability.deleteMany({ where: { userId: { in: [alice.id, bob.id] }, activityId: volleyball.id } });
+  await prisma.userAvailability.createMany({
+    data: [
+      { userId: alice.id, activityId: volleyball.id, dayOfWeek: 3, startTime: "19:00", endTime: "21:00", recurring: true },
+      { userId: bob.id, activityId: volleyball.id, dayOfWeek: 3, startTime: "19:00", endTime: "21:00", recurring: true },
+    ],
+  });
+
+  const aliceBobChatId = await seedApprovedChat({
+    requesterId: bob.id,
+    recipientId: alice.id,
+    activityId: tennis.id,
+    greeting: "Hey! I think we can do this activity together — which time would you prefer?",
+  });
+  await seedApprovedChat({
+    requesterId: alice.id,
+    recipientId: bob.id,
+    activityId: volleyball.id,
+    greeting: "Hey! I think we can do this activity together — which time would you prefer?",
+  });
+
+  async function seedCompletedHistory(chatId: string, activityId: string, count: number) {
+    const existing = await prisma.trainingSession.count({ where: { chatId, activityId, status: "completed" } });
+    for (let i = existing; i < count; i++) {
+      const anyPriorCompleted = await prisma.trainingSession.findFirst({ where: { chatId, status: "completed" } });
+      const scheduledAt = new Date();
+      scheduledAt.setDate(scheduledAt.getDate() - (count - i) * 14);
+      await prisma.trainingSession.create({
+        data: {
+          chatId,
+          hostId: i % 2 === 0 ? alice.id : bob.id,
+          participantId: i % 2 === 0 ? bob.id : alice.id,
+          activityId,
+          scheduledAt,
+          status: "completed",
+          completedAt: scheduledAt,
+          isFirstBetweenUsers: !anyPriorCompleted,
+          completedByUserA: true,
+          completedByUserB: true,
+          didHappenA: true,
+          didHappenB: true,
+          wouldPlayAgainA: true,
+          wouldPlayAgainB: true,
+        },
+      });
+    }
+  }
+  await seedCompletedHistory(aliceBobChatId, tennis.id, 3);
+  await seedCompletedHistory(aliceBobChatId, volleyball.id, 3);
+
+  for (const user of [alice, bob]) {
+    const completedCount = await prisma.trainingSession.count({
+      where: { status: "completed", OR: [{ hostId: user.id }, { participantId: user.id }] },
+    });
+    await prisma.userProfile.update({
+      where: { userId: user.id },
+      data: { completedTrainingsCount: completedCount, communityUnlockNotified: completedCount >= 3 },
+    });
+  }
+
   console.log(`Seeded ${ACTIVITIES.length} activities, 2 core demo users + ${DEMO_PROFILES.length} Round 2 profiles (password: password123)`);
 }
 
