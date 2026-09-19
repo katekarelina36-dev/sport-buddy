@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Stack, useRouter, useSegments } from "expo-router";
-import { useFonts, Nunito_400Regular, Nunito_600SemiBold, Nunito_800ExtraBold } from "@expo-google-fonts/nunito";
+import { useFonts, JosefinSans_400Regular, JosefinSans_600SemiBold, JosefinSans_700Bold } from "@expo-google-fonts/josefin-sans";
 import * as SplashScreen from "expo-splash-screen";
 import { colors } from "../src/theme";
 import { AuthProvider, useAuth } from "../src/hooks/useAuth";
@@ -16,7 +16,7 @@ export default function RootLayout() {
 }
 
 function RootNavigator() {
-  const [fontsLoaded] = useFonts({ Nunito_400Regular, Nunito_600SemiBold, Nunito_800ExtraBold });
+  const [fontsLoaded] = useFonts({ JosefinSans_400Regular, JosefinSans_600SemiBold, JosefinSans_700Bold });
   const { profile, loading, isOnboardingComplete } = useAuth();
   const segments = useSegments();
   const router = useRouter();

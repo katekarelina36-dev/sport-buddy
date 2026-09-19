@@ -42,4 +42,4 @@ Swap a driver by implementing its interface and switching the `*_DRIVER` env var
 
 ## Design system
 
-Coral `#FF6B4A` primary · Sage `#2E7D32` / `#E8F5E9` secondary · off-white `#FAFAFA` background · Charcoal `#1E293B` neutral dark · Nunito / System Rounded typography · 16–24px corner radius · `shadowOpacity: 0.08` · all touch targets ≥ 44×44px. Tokens live in `apps/mobile/src/theme.ts`.
+Orange `#EE5B00` primary · Sage `#2E7D32` / `#E8F5E9` secondary · off-white `#FFF9EE` background · `#01232E` neutral dark (text) · Josefin Sans typography · 16–24px corner radius · `shadowOpacity: 0.08` · all touch targets ≥ 44×44px. Tokens live in `apps/mobile/src/theme.ts`.
