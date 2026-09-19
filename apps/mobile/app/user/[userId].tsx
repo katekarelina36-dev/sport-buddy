@@ -124,15 +124,12 @@ export default function UserProfileScreen() {
       </ScrollView>
 
       <View style={styles.bottomBar}>
-        <Pressable
-          style={[styles.sendButton, requested && styles.sendButtonSent]}
+        <Button
+          label={requested ? "Request Sent" : "Send Activity Request"}
+          variant="glassPrimary"
           disabled={requested}
           onPress={() => setRequestSheetOpen(true)}
-        >
-          <Text style={[styles.sendButtonLabel, requested && styles.sendButtonLabelSent]}>
-            {requested ? "Request Sent" : "Send Activity Request"}
-          </Text>
-        </Pressable>
+        />
       </View>
 
       {primaryActivity && (
@@ -210,10 +207,6 @@ const styles = StyleSheet.create({
   communityChip: { height: 28, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white, justifyContent: "center" },
   communityChipLabel: { fontFamily: typography.fontFamilyRegular, fontSize: 13, color: colors.charcoal },
   bottomBar: { position: "absolute", bottom: 0, left: 0, right: 0, backgroundColor: colors.white, borderTopWidth: 1, borderTopColor: colors.border, padding: spacing.md, paddingBottom: spacing.xl },
-  sendButton: { height: 52, borderRadius: radii.lg, backgroundColor: colors.coral, alignItems: "center", justifyContent: "center" },
-  sendButtonSent: { backgroundColor: colors.border },
-  sendButtonLabel: { fontFamily: typography.fontFamily, fontSize: 16, color: colors.white },
-  sendButtonLabelSent: { color: colors.muted },
   menuBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.3)", justifyContent: "flex-end" },
   menu: { backgroundColor: colors.white, borderRadius: radii.sm, margin: spacing.lg, overflow: "hidden" },
   menuItem: { padding: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
