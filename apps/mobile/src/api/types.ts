@@ -6,7 +6,7 @@ export interface UserProfile {
   dateOfBirth: string | null;
   photoUrl: string | null;
   bio: string | null;
-  successfulTrainingsCount: number;
+  completedTrainingsCount: number;
   onboardingCompletedAt: string | null;
 }
 

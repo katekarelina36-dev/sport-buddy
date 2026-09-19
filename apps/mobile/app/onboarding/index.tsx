@@ -1,15 +1,17 @@
 import { useEffect, useState } from "react";
-import { View, Text, TextInput, StyleSheet, Pressable, ScrollView, ActivityIndicator, Image, Alert, Platform } from "react-native";
+import { View, Text, TextInput, StyleSheet, Pressable, ScrollView, ActivityIndicator, Image, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "../../src/components/Button";
+import { CityAutocomplete } from "../../src/components/CityAutocomplete";
+import { DateOfBirthPicker } from "../../src/components/DateOfBirthPicker";
 import { SportAvailabilityCard, type SportSelection } from "../../src/components/SportAvailabilityCard";
 import { colors, spacing, typography, radii } from "../../src/theme";
 import { api, uploadPhoto } from "../../src/api/client";
 import { useAuth } from "../../src/hooks/useAuth";
 import { calculateAge, defaultDateOfBirth, MIN_ONBOARDING_AGE } from "../../src/utils/age";
+import { isValidCity } from "../../src/utils/euCapitals";
 import type { Activity } from "../../src/api/types";
 
 const STEPS = ["name_city", "dob", "sports", "photo"] as const;
@@ -31,7 +33,6 @@ export default function OnboardingScreen() {
   const [displayName, setDisplayName] = useState("");
   const [city, setCity] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState<Date>(defaultDateOfBirth());
-  const [showDatePicker, setShowDatePicker] = useState(Platform.OS === "ios");
   const [sports, setSports] = useState<Record<string, SportSelection>>({});
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -110,7 +111,7 @@ export default function OnboardingScreen() {
   }
 
   function canContinue(): boolean {
-    if (step === "name_city") return displayName.trim().length > 0 && city.trim().length > 0;
+    if (step === "name_city") return displayName.trim().length > 0 && isValidCity(city);
     if (step === "dob") return calculateAge(dateOfBirth) >= MIN_ONBOARDING_AGE;
     if (step === "sports") return Object.keys(sports).length > 0;
     return true;
@@ -181,7 +182,7 @@ export default function OnboardingScreen() {
             <Text style={styles.label}>Your name</Text>
             <TextInput style={styles.input} placeholder="Enter your name" value={displayName} onChangeText={setDisplayName} />
             <Text style={[styles.label, { marginTop: spacing.md }]}>Your city</Text>
-            <TextInput style={styles.input} placeholder="Enter your city" value={city} onChangeText={setCity} />
+            <CityAutocomplete value={city} onChangeText={setCity} />
           </>
         )}
 
@@ -189,27 +190,10 @@ export default function OnboardingScreen() {
           <>
             <Text style={styles.title}>When were you born?</Text>
             <Text style={styles.subtitle}>We use this to show your age on your profile</Text>
-            <View style={styles.datePickerWrap}>
-              {(showDatePicker || Platform.OS === "ios") && (
-                <DateTimePicker
-                  value={dateOfBirth}
-                  mode="date"
-                  display={Platform.OS === "ios" ? "spinner" : "default"}
-                  maximumDate={(() => {
-                    const max = new Date();
-                    max.setFullYear(max.getFullYear() - MIN_ONBOARDING_AGE);
-                    return max;
-                  })()}
-                  onChange={(_event, date) => {
-                    if (Platform.OS === "android") setShowDatePicker(false);
-                    if (date) setDateOfBirth(date);
-                  }}
-                />
-              )}
-              {Platform.OS === "android" && !showDatePicker && (
-                <Button label={dateOfBirth.toDateString()} variant="outline" onPress={() => setShowDatePicker(true)} />
-              )}
-            </View>
+            <DateOfBirthPicker value={dateOfBirth} onChange={setDateOfBirth} />
+            {calculateAge(dateOfBirth) < MIN_ONBOARDING_AGE && (
+              <Text style={styles.dobError}>You must be at least {MIN_ONBOARDING_AGE} years old</Text>
+            )}
           </>
         )}
 
@@ -295,7 +279,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.charcoal,
   },
-  datePickerWrap: { alignItems: "center", marginTop: spacing.lg },
+  dobError: { fontFamily: typography.fontFamilyRegular, fontSize: 12, color: colors.error, textAlign: "center", marginTop: spacing.sm },
   sportGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   sportCard: {
     width: "30%",

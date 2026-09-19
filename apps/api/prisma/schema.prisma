@@ -140,7 +140,10 @@ model UserProfile {
   locationLat        Float?
   locationLng        Float?
   timezone           String   @default("UTC")
-  successfulTrainingsCount Int @default(0)
+  completedTrainingsCount Int @default(0)
+  // Communities: unlocks community creation at 3 completed Events; this flag
+  // guards the one-time celebration popup from firing more than once.
+  communityUnlockNotified Boolean @default(false)
   onboardingCompletedAt DateTime?
 }
 

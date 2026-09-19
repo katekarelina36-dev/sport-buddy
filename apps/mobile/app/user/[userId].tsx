@@ -78,7 +78,7 @@ export default function UserProfileScreen() {
             <Text style={styles.subtitle}>{[age, user.profile?.city].filter(Boolean).join(" · ")}</Text>
           )}
           <View style={styles.statBadge}>
-            <Text style={styles.statBadgeText}>✓ {user.profile?.successfulTrainingsCount ?? 0} events completed</Text>
+            <Text style={styles.statBadgeText}>✓ {user.profile?.completedTrainingsCount ?? 0} events completed</Text>
           </View>
         </View>
 

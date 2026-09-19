@@ -5,9 +5,24 @@ import { requireAuth, type AuthedRequest } from "../lib/auth.js";
 import { calendarDriver } from "../lib/calendar.js";
 import { notify } from "../lib/notify.js";
 import { enqueue } from "../lib/queue.js";
+import { emitToUser } from "../sockets/chat.js";
 
 export const trainingRouter = Router();
 trainingRouter.use(requireAuth);
+
+// Communities: unlocks community creation at 3 completed Events (any sport).
+// Pushed to the client over the same per-user socket room used for the
+// pending-requests badge, so the celebration pop-up can appear immediately.
+async function bumpCompletedTrainings(userId: string): Promise<void> {
+  const updated = await prisma.userProfile.update({
+    where: { userId },
+    data: { completedTrainingsCount: { increment: 1 } },
+  });
+  if (updated.completedTrainingsCount === 3 && !updated.communityUnlockNotified) {
+    await prisma.userProfile.update({ where: { userId }, data: { communityUnlockNotified: true } });
+    emitToUser(userId, "community:unlocked", true);
+  }
+}
 
 const scheduleSchema = z.object({
   chatId: z.string(),
@@ -184,8 +199,8 @@ trainingRouter.post("/:id/complete", async (req: AuthedRequest, res) => {
     if (bothHappened) {
       // Event-driven counter update (outbox-style): increment via queued job, not inline read-modify-write.
       enqueue(async () => {
-        await prisma.userProfile.update({ where: { userId: training.hostId }, data: { successfulTrainingsCount: { increment: 1 } } });
-        await prisma.userProfile.update({ where: { userId: training.participantId }, data: { successfulTrainingsCount: { increment: 1 } } });
+        await bumpCompletedTrainings(training.hostId);
+        await bumpCompletedTrainings(training.participantId);
       });
     }
     await postCompletionMessage(training.chatId, training.activityId, training.scheduledAt);
@@ -212,8 +227,8 @@ trainingRouter.post("/:id/complete-simple", async (req: AuthedRequest, res) => {
     data: { status: "completed", completedAt: new Date() },
   });
   enqueue(async () => {
-    await prisma.userProfile.update({ where: { userId: training.hostId }, data: { successfulTrainingsCount: { increment: 1 } } });
-    await prisma.userProfile.update({ where: { userId: training.participantId }, data: { successfulTrainingsCount: { increment: 1 } } });
+    await bumpCompletedTrainings(training.hostId);
+    await bumpCompletedTrainings(training.participantId);
   });
   await postCompletionMessage(training.chatId, training.activityId, training.scheduledAt);
   res.json(training);

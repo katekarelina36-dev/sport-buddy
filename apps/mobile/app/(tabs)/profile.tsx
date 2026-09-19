@@ -38,7 +38,7 @@ export default function ProfileScreen() {
           </Text>
         )}
         {profile.profile?.bio && <Text style={styles.bio}>{profile.profile.bio}</Text>}
-        <Text style={styles.stat}>{profile.profile?.successfulTrainingsCount ?? 0} successful trainings</Text>
+        <Text style={styles.stat}>{profile.profile?.completedTrainingsCount ?? 0} completed trainings</Text>
       </Card>
 
       <Card style={{ gap: spacing.sm, marginTop: spacing.md }}>

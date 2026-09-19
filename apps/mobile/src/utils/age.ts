@@ -9,8 +9,8 @@ export function calculateAge(dateOfBirth: string | Date): number {
 
 export const MIN_ONBOARDING_AGE = 16;
 
+// Bug fix batch (Round 6), Bug 2: the three-column DOB picker's default open
+// state is "25 years ago, January 1st" — not today's month/day.
 export function defaultDateOfBirth(): Date {
-  const d = new Date();
-  d.setFullYear(d.getFullYear() - 25);
-  return d;
+  return new Date(new Date().getFullYear() - 25, 0, 1);
 }

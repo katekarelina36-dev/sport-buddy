@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { View, Text, TextInput, StyleSheet, Pressable, ScrollView, Alert, Platform } from "react-native";
+import { View, Text, TextInput, StyleSheet, Pressable, ScrollView, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "../../src/components/Button";
 import { Avatar } from "../../src/components/Avatar";
+import { CityAutocomplete } from "../../src/components/CityAutocomplete";
 import { colors, spacing, typography, radii } from "../../src/theme";
 import { api, uploadPhoto } from "../../src/api/client";
 import { useAuth } from "../../src/hooks/useAuth";
@@ -13,6 +15,7 @@ import { useAuth } from "../../src/hooks/useAuth";
 // (profile/activities.tsx), matching the Round 2 spec.
 export default function EditProfileScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { profile, refresh } = useAuth();
   const [displayName, setDisplayName] = useState(profile?.profile?.displayName ?? "");
   const [city, setCity] = useState(profile?.profile?.city ?? "");
@@ -71,14 +74,14 @@ export default function EditProfileScreen() {
         <TextInput style={styles.input} value={displayName} onChangeText={setDisplayName} placeholder="Display name" />
 
         <Text style={styles.label}>City</Text>
-        <TextInput style={styles.input} value={city} onChangeText={setCity} placeholder="Your city" />
+        <CityAutocomplete value={city} onChangeText={setCity} />
 
         <Text style={styles.label}>Bio</Text>
         <TextInput style={[styles.input, styles.multiline]} value={bio} onChangeText={setBio} placeholder="Intro bio" multiline />
       </ScrollView>
 
       {/* Bug fix batch 2, Bug 4: primary CTAs fixed outside the ScrollView. */}
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
         <Button label={saving ? "Saving…" : "Save"} onPress={save} disabled={saving} />
         <Button label="Cancel" variant="outline" onPress={() => router.back()} />
       </View>
@@ -109,6 +112,5 @@ const styles = StyleSheet.create({
     backgroundColor: colors.offWhite,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
-    paddingBottom: Platform.OS === "ios" ? spacing.xl : spacing.md,
   },
 });
