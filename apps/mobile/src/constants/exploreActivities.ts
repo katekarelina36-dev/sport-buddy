@@ -4,11 +4,15 @@ import type { ImageSourcePropType } from "react-native";
 // shown, in this fixed order, regardless of what the API returns.
 export const EXPLORE_ACTIVITIES = ["Tennis", "Padel", "Badminton", "Squash", "Basketball", "Volleyball"] as const;
 
-// No photo assets have been provided for these yet — falls back to a flat
-// tint (still run through the same opacity/blur/gradient treatment) so the
-// card layout can ship now and real photos can drop in later by filling in
-// this map with `require("../../assets/activities/<name>.jpg")`.
-export const ACTIVITY_IMAGES: Partial<Record<(typeof EXPLORE_ACTIVITIES)[number], ImageSourcePropType>> = {};
+// Padel has no photo yet — falls back to a flat tint (still run through the
+// same opacity/blur/gradient treatment) until one is provided.
+export const ACTIVITY_IMAGES: Partial<Record<(typeof EXPLORE_ACTIVITIES)[number], ImageSourcePropType>> = {
+  Tennis: require("../../assets/activities/tennis.jpg"),
+  Badminton: require("../../assets/activities/badminton.jpg"),
+  Squash: require("../../assets/activities/squash.jpg"),
+  Basketball: require("../../assets/activities/basketball.jpg"),
+  Volleyball: require("../../assets/activities/volleyball.jpg"),
+};
 
 export const ACTIVITY_PLACEHOLDER_TINT: Record<(typeof EXPLORE_ACTIVITIES)[number], string> = {
   Tennis: "#8BA888",
