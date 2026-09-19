@@ -2,11 +2,11 @@ import { Platform } from "react-native";
 
 // Design tokens straight from the tech spec's "Cross-Cutting Non-Functional Requirements".
 export const colors = {
-  coral: "#EE5B00",
-  sageLight: "#E8F5E9",
-  sageDark: "#2E7D32",
-  offWhite: "#FFF9EE",
-  charcoal: "#01232E",
+  coral: "#1907A7",
+  sageLight: "rgba(255, 136, 0, 0.23)",
+  sageDark: "#FF8800",
+  offWhite: "#EDECEF",
+  charcoal: "#04001D",
   warmError: "#E0654A", // warm, on-brand error — not harsh red
   error: "#E53E3E",
   white: "#FFFFFF",
@@ -28,9 +28,9 @@ export const spacing = {
 };
 
 export const typography = {
-  fontFamily: "JosefinSans_600SemiBold",
-  fontFamilyRegular: "JosefinSans_400Regular",
-  fontFamilyBold: "JosefinSans_700Bold",
+  fontFamily: "Fraunces_600SemiBold",
+  fontFamilyRegular: "Fraunces_400Regular",
+  fontFamilyBold: "Fraunces_700Bold",
 };
 
 // Every touch target in the spec must be >= 44x44.
