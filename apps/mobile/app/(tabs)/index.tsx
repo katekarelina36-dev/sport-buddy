@@ -1,43 +1,65 @@
-import { useEffect, useState } from "react";
-import { View, Text, FlatList, Pressable, StyleSheet } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { View, Text, FlatList, TextInput, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../../src/api/client";
-import { ActivityIcon } from "../../src/components/icons/ActivityIcon";
-import { colors, radii, spacing, shadow, typography, minTouchTarget } from "../../src/theme";
+import { ActivityCard } from "../../src/components/ActivityCard";
+import { EXPLORE_ACTIVITIES, ACTIVITY_IMAGES, ACTIVITY_PLACEHOLDER_TINT } from "../../src/constants/exploreActivities";
+import { colors, spacing, typography } from "../../src/theme";
 import type { Activity } from "../../src/api/types";
 
-// F2/F3 (Round 2): "Explore Activities" sport picker — server-driven 3-column
-// grid; tapping a card goes to the feed pre-filtered by that activity (F3).
+// Explore Activity screen (Round 3 card redesign): full-width photo rows
+// instead of a 3-column icon grid, scoped down to a fixed six-sport list
+// (name-matched against whatever the API returns, in a fixed display order)
+// with a live text filter above it. Tap behavior is unchanged — still routes
+// into the F3 feed pre-filtered by that activity.
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     api.get<Activity[]>("/activities").then(setActivities);
   }, []);
 
+  const items = useMemo(() => {
+    const byName = new Map(activities.map((a) => [a.name, a]));
+    const q = query.trim().toLowerCase();
+    return EXPLORE_ACTIVITIES.map((name) => byName.get(name)).filter(
+      (a): a is Activity => a !== undefined && a.name.toLowerCase().includes(q)
+    );
+  }, [activities, query]);
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <Text style={styles.title}>Explore Activities</Text>
-      <Text style={styles.subtitle}>Choose a sport to find a partner</Text>
+      <Text style={styles.title}>Choose your activity</Text>
+
+      <View style={styles.searchWrap}>
+        <Text style={styles.searchIcon}>🔍</Text>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search activity"
+          placeholderTextColor={colors.muted}
+          value={query}
+          onChangeText={setQuery}
+          autoCapitalize="none"
+        />
+      </View>
+
       <FlatList
-        data={activities}
-        numColumns={3}
+        data={items}
         keyExtractor={(a) => a.id}
-        columnWrapperStyle={{ gap: spacing.sm }}
-        contentContainerStyle={{ gap: spacing.sm, paddingBottom: spacing.xl, paddingTop: spacing.md }}
-        renderItem={({ item }) => (
-          <Pressable
-            style={styles.card}
+        contentContainerStyle={styles.listContent}
+        ListEmptyComponent={<Text style={styles.empty}>No activities match "{query}"</Text>}
+        renderItem={({ item, index }) => (
+          <ActivityCard
+            name={item.name}
+            image={ACTIVITY_IMAGES[item.name as (typeof EXPLORE_ACTIVITIES)[number]]}
+            tint={ACTIVITY_PLACEHOLDER_TINT[item.name as (typeof EXPLORE_ACTIVITIES)[number]] ?? colors.border}
+            roundedTop={index === 0}
             onPress={() => router.push({ pathname: "/feed/[activityId]", params: { activityId: item.id, sportName: item.name } })}
-          >
-            <ActivityIcon name={item.name} size={40} />
-            <Text style={styles.label} numberOfLines={2}>
-              {item.name}
-            </Text>
-          </Pressable>
+          />
         )}
       />
     </View>
@@ -45,20 +67,22 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.offWhite, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg },
-  title: { fontFamily: typography.fontFamilyBold, fontSize: 22, color: colors.charcoal },
-  subtitle: { fontFamily: typography.fontFamilyRegular, fontSize: 15, color: colors.muted, marginTop: 4 },
-  card: {
-    flex: 1,
-    aspectRatio: 1,
-    backgroundColor: colors.white,
-    borderRadius: radii.lg,
+  container: { flex: 1, backgroundColor: colors.offWhite },
+  title: { fontFamily: typography.fontFamilyRegular, fontSize: 15, color: colors.charcoal, paddingHorizontal: spacing.lg, paddingTop: spacing.md },
+  searchWrap: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    minWidth: minTouchTarget,
-    padding: spacing.xs,
-    ...shadow,
+    height: 44,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 22,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.white,
   },
-  label: { fontFamily: typography.fontFamily, fontSize: 12, color: colors.charcoal, textAlign: "center" },
+  searchIcon: { fontSize: 14, marginRight: spacing.xs },
+  searchInput: { flex: 1, fontFamily: typography.fontFamilyRegular, fontSize: 14, color: colors.charcoal },
+  listContent: { paddingTop: spacing.md, paddingBottom: spacing.xl },
+  empty: { fontFamily: typography.fontFamilyRegular, color: colors.muted, textAlign: "center", marginTop: spacing.xl },
 });
