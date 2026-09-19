@@ -49,14 +49,15 @@ export function TennisIcon({ size = 40 }: IconProps) {
 export function RunningIcon({ size = 40 }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 64 64">
-      <BallBadge color="#ff6b4a" />
-      <Rect x={24} y={34} width={30} height={9} rx={4.5} fill="#4d4f59" transform="rotate(-18 39 38.5)" />
+      <Circle cx={40} cy={16} r={6} fill="#5f606c" />
       <Path
-        fill="#ff6b4a"
-        d="M26 34c2-8 10-14 20-14c4 0 8 2 8 6c0 4-4 6-8 7l-4 1H26z"
-        transform="rotate(-18 39 38.5)"
+        d="M38 22L28 36 M28 36L37 40L33 52 M28 36L17 43L9 46 M34 24L45 19 M30 27L19 31"
+        stroke="#ff6b4a"
+        strokeWidth={4}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
       />
-      <Path d="M34 24l4 4M39 21l4 4" stroke="#fff" strokeWidth={1.5} strokeLinecap="round" transform="rotate(-18 39 38.5)" />
     </Svg>
   );
 }
@@ -64,11 +65,10 @@ export function RunningIcon({ size = 40 }: IconProps) {
 export function CyclingIcon({ size = 40 }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 64 64">
-      <BallBadge color="#4FC3F7" />
-      <Circle cx={26} cy={46} r={8} fill="none" stroke="#4d4f59" strokeWidth={3} />
-      <Circle cx={50} cy={46} r={8} fill="none" stroke="#4d4f59" strokeWidth={3} />
-      <Path d="M26 46L38 26L50 46M38 26L44 46M30 34H46" stroke="#2e7d32" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" fill="none" />
-      <Path d="M38 26v-4M34 22h8M50 46l6-6" stroke="#4d4f59" strokeWidth={3} strokeLinecap="round" fill="none" />
+      <Circle cx={20} cy={44} r={10} fill="none" stroke="#4d4f59" strokeWidth={3} />
+      <Circle cx={44} cy={44} r={10} fill="none" stroke="#4d4f59" strokeWidth={3} />
+      <Path d="M20 44L34 18L44 44M34 18L40 44M24 30H46" stroke="#2e7d32" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <Path d="M34 18v-4M30 14h8M44 44l7-6" stroke="#4d4f59" strokeWidth={3} strokeLinecap="round" fill="none" />
     </Svg>
   );
 }
@@ -76,11 +76,10 @@ export function CyclingIcon({ size = 40 }: IconProps) {
 export function ChessIcon({ size = 40 }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 64 64">
-      <BallBadge color="#8A94A6" />
-      <Circle cx={38} cy={24} r={6} fill="#1e293b" />
-      <Rect x={32} y={29} width={12} height={3} rx={1.5} fill="#5f606c" />
-      <Path d="M33 33h10l3 15H30z" fill="#1e293b" />
-      <Rect x={27} y={47} width={22} height={5} rx={2} fill="#1e293b" />
+      <Circle cx={32} cy={16} r={7} fill="#1e293b" />
+      <Rect x={25} y={22} width={14} height={3.5} rx={1.75} fill="#5f606c" />
+      <Path d="M26 27h12l4 18H22z" fill="#1e293b" />
+      <Rect x={19} y={47} width={26} height={6} rx={2.5} fill="#1e293b" />
     </Svg>
   );
 }
@@ -104,13 +103,12 @@ export function BasketballIcon({ size = 40 }: IconProps) {
 export function YogaIcon({ size = 40 }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 64 64">
-      <BallBadge color="#B39DDB" />
-      <Circle cx={40} cy={22} r={6} fill="#5f606c" />
+      <Circle cx={32} cy={22} r={6} fill="#5f606c" />
       <Path
-        d="M40 28c-10 2-16 8-18 16c-1 3 1 5 4 5h28c3 0 5-2 4-5c-2-8-8-14-18-16z"
+        d="M32 28c-10 2-16 8-18 16c-1 3 1 5 4 5h28c3 0 5-2 4-5c-2-8-8-14-18-16z"
         fill="#B39DDB"
       />
-      <Path d="M24 44c3-2 6-2 8 0M48 44c2-2 5-2 8 0" stroke="#5f606c" strokeWidth={2} strokeLinecap="round" fill="none" />
+      <Path d="M16 44c3-2 6-2 8 0M40 44c2-2 5-2 8 0" stroke="#5f606c" strokeWidth={2} strokeLinecap="round" fill="none" />
     </Svg>
   );
 }
@@ -118,11 +116,10 @@ export function YogaIcon({ size = 40 }: IconProps) {
 export function SwimmingIcon({ size = 40 }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 64 64">
-      <BallBadge color="#4FC3F7" />
-      <Circle cx={46} cy={28} r={5} fill="#5f606c" />
-      <Path d="M40 33c4-2 8-2 12-4" stroke="#5f606c" strokeWidth={2.5} strokeLinecap="round" fill="none" />
-      <Path d="M20 42c4-4 8-4 12 0s8 4 12 0s8-4 12 0" stroke="#4FC3F7" strokeWidth={3} strokeLinecap="round" fill="none" />
-      <Path d="M20 50c4-4 8-4 12 0s8 4 12 0s8-4 12 0" stroke="#29B6F6" strokeWidth={3} strokeLinecap="round" fill="none" />
+      <Circle cx={40} cy={22} r={5} fill="#5f606c" />
+      <Path d="M34 27c4-2 8-2 12-4" stroke="#5f606c" strokeWidth={2.5} strokeLinecap="round" fill="none" />
+      <Path d="M14 36c4-4 8-4 12 0s8 4 12 0s8-4 12 0" stroke="#4FC3F7" strokeWidth={3} strokeLinecap="round" fill="none" />
+      <Path d="M14 44c4-4 8-4 12 0s8 4 12 0s8-4 12 0" stroke="#29B6F6" strokeWidth={3} strokeLinecap="round" fill="none" />
     </Svg>
   );
 }
@@ -130,11 +127,10 @@ export function SwimmingIcon({ size = 40 }: IconProps) {
 export function ClimbingIcon({ size = 40 }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 64 64">
-      <BallBadge color="#FFD54F" />
-      <Path d="M22 52L34 28l7 9l5-7l11 22z" fill="#8D6E63" />
-      <Path d="M34 28l4 5l-4 3l-4-3z" fill="#fff" />
-      <Path d="M46 33v10" stroke="#4d4f59" strokeWidth={1.5} />
-      <Path d="M46 33l6 3l-6 3z" fill="#ff717f" />
+      <Path d="M16 44L28 20l7 9l5-7l11 22z" fill="#8D6E63" />
+      <Path d="M28 20l4 5l-4 3l-4-3z" fill="#fff" />
+      <Path d="M40 25v10" stroke="#4d4f59" strokeWidth={1.5} />
+      <Path d="M40 25l6 3l-6 3z" fill="#ff717f" />
     </Svg>
   );
 }
@@ -142,10 +138,9 @@ export function ClimbingIcon({ size = 40 }: IconProps) {
 export function FootballIcon({ size = 40 }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 64 64">
-      <BallBadge color="#66BB6A" />
-      <Circle cx={40} cy={36} r={16} fill="#fff" stroke="#1e293b" strokeWidth={1.5} />
-      <Path d="M40 28l6 4l-2 7h-8l-2-7z" fill="#1e293b" />
-      <Path d="M40 28V22M46 32l5-3M44 39l3 6M36 39l-3 6M34 32l-5-3" stroke="#1e293b" strokeWidth={1.5} strokeLinecap="round" fill="none" />
+      <Circle cx={32} cy={32} r={27} fill="#fff" stroke="#1e293b" strokeWidth={2} />
+      <Path d="M32 20l9 6l-3 11h-12l-3-11z" fill="#1e293b" />
+      <Path d="M32 20V8M43 27l9-5M39 37l5 10M25 37l-5 10M21 27l-9-5" stroke="#1e293b" strokeWidth={2} strokeLinecap="round" fill="none" />
     </Svg>
   );
 }
@@ -153,10 +148,9 @@ export function FootballIcon({ size = 40 }: IconProps) {
 export function DanceIcon({ size = 40 }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 64 64">
-      <BallBadge color="#BA68C8" />
-      <Circle cx={42} cy={20} r={5} fill="#5f606c" />
+      <Circle cx={34} cy={16} r={5} fill="#5f606c" />
       <Path
-        d="M42 25v12M42 26l-9-6M42 26l10-3M42 37l-8 12M42 37l9 9"
+        d="M34 21v12M34 22l-9-6M34 22l10-3M34 33l-8 12M34 33l9 9"
         stroke="#BA68C8"
         strokeWidth={3}
         strokeLinecap="round"
