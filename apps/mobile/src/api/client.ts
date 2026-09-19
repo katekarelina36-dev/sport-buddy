@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { File, UploadType } from "expo-file-system";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:4000";
 const TOKEN_KEY = "sport-buddy/token";
@@ -47,37 +48,30 @@ export const api = {
   put: <T>(path: string, body?: unknown) => request<T>(path, { method: "PUT", body: body ? JSON.stringify(body) : undefined }),
 };
 
-// F5/F1: uploads a picked photo to POST /profile/me/photo as multipart form
-// data (field "photo") — the standard, reliable way to send a file from a
-// React Native URI. An earlier version fetched the local URI into a Blob and
-// sent that as a raw request body, which silently corrupted the image bytes
-// under Expo SDK 57's fetch implementation (Blob round-tripped between two
-// separate fetch() calls is not reliable there).
+// F5/F1: uploads a picked photo to POST /profile/me/photo (multipart field
+// "photo") using expo-file-system's File.upload — the officially supported
+// way to upload a local file under Expo SDK 57. Two earlier approaches both
+// failed under this SDK: fetch(uri).blob() as a raw body corrupted the image
+// bytes, and manually building a FormData with a {uri,name,type} part threw
+// "Unsupported FormData part implementation" (that RN shorthand isn't
+// supported by Expo's newer fetch/FormData polyfill).
 export async function uploadPhoto(localUri: string): Promise<{ photoUrl: string }> {
   const token = await getToken();
-  const formData = new FormData();
-  // React Native's fetch/FormData accepts this {uri,name,type} object shape
-  // in place of a real Blob/File — the native layer reads the file directly.
-  formData.append("photo", {
-    uri: localUri,
-    name: "photo.jpg",
-    type: "image/jpeg",
-  } as unknown as Blob);
-
-  const res = await fetch(`${API_URL}/profile/me/photo`, {
-    method: "POST",
+  const file = new File(localUri);
+  const result = await file.upload(`${API_URL}/profile/me/photo`, {
+    httpMethod: "POST",
+    uploadType: UploadType.MULTIPART,
+    fieldName: "photo",
+    mimeType: "image/jpeg",
     headers: {
-      // No Content-Type here: fetch sets the multipart boundary itself for FormData bodies.
       ...NGROK_SKIP_HEADER,
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: formData,
   });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`${res.status} photo upload: ${text}`);
+  if (result.status < 200 || result.status >= 300) {
+    throw new Error(`${result.status} photo upload: ${result.body}`);
   }
-  return res.json();
+  return JSON.parse(result.body);
 }
 
 export const API_BASE_URL = API_URL;

@@ -7,38 +7,70 @@ import { notify } from "../lib/notify.js";
 export const activityRequestsRouter = Router();
 activityRequestsRouter.use(requireAuth);
 
-// F7: create an Activity Request; unique (requester, post, pending) blocks
-// duplicates, and re-submitting the same tuple is idempotent (survives retries).
+const createSchema = z.union([
+  z.object({ postId: z.string(), slotId: z.string() }),
+  z.object({
+    targetUserId: z.string(),
+    activityId: z.string(),
+    // F7 (Round 2): the specific day+time the requester picked from the
+    // target's availability calendar, shown back to them in F8.
+    selectedDayOfWeek: z.number().min(0).max(6).optional(),
+    selectedStartTime: z.string().optional(),
+    selectedEndTime: z.string().optional(),
+  }),
+]);
+
+// F7 (legacy post flow) + F3/F4 (direct flow, sent from a discovered profile
+// straight to that person for a sport, no Activity Post involved). Unique
+// constraints on (requester, post, pending) and (requester, target, activity,
+// pending) block duplicates; re-submitting the same tuple is idempotent.
 activityRequestsRouter.post("/", async (req: AuthedRequest, res) => {
-  const schema = z.object({ postId: z.string(), slotId: z.string() });
-  const parsed = schema.safeParse(req.body);
+  const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.flatten() });
     return;
   }
-  const { postId, slotId } = parsed.data;
 
+  if ("postId" in parsed.data) {
+    const { postId, slotId } = parsed.data;
+    const existing = await prisma.activityRequest.findFirst({ where: { requesterId: req.userId!, postId, status: "pending" } });
+    if (existing) {
+      res.status(200).json(existing);
+      return;
+    }
+    const post = await prisma.activityPost.findUniqueOrThrow({ where: { id: postId } });
+    const request = await prisma.activityRequest.create({
+      data: { requesterId: req.userId!, postId, slotId, activityId: post.activityId, status: "pending" },
+    });
+    notify(post.authorId, "activity_request_received", { message: "You have a new activity request." }, `/requests`);
+    res.status(201).json(request);
+    return;
+  }
+
+  const { targetUserId, activityId, selectedDayOfWeek, selectedStartTime, selectedEndTime } = parsed.data;
   const existing = await prisma.activityRequest.findFirst({
-    where: { requesterId: req.userId!, postId, status: "pending" },
+    where: { requesterId: req.userId!, targetUserId, activityId, status: "pending" },
   });
   if (existing) {
     res.status(200).json(existing);
     return;
   }
-
-  const post = await prisma.activityPost.findUniqueOrThrow({ where: { id: postId } });
   const request = await prisma.activityRequest.create({
-    data: { requesterId: req.userId!, postId, slotId, activityId: post.activityId, status: "pending" },
+    data: { requesterId: req.userId!, targetUserId, activityId, selectedDayOfWeek, selectedStartTime, selectedEndTime, status: "pending" },
   });
-
-  notify(post.authorId, "activity_request_received", { message: "You have a new activity request." }, `/requests`);
+  notify(targetUserId, "activity_request_received", { message: "You have a new activity request." }, `/requests`);
   res.status(201).json(request);
 });
 
-// F8: pending queue for the Activity Post owner.
+function recipientId(request: { post: { authorId: string } | null; targetUserId: string | null }): string {
+  return request.post?.authorId ?? request.targetUserId!;
+}
+
+// F8: pending queue for whoever the request was sent to (post owner, or the
+// directly-targeted user).
 activityRequestsRouter.get("/pending", async (req: AuthedRequest, res) => {
   const requests = await prisma.activityRequest.findMany({
-    where: { status: "pending", post: { authorId: req.userId! } },
+    where: { status: "pending", OR: [{ post: { authorId: req.userId! } }, { targetUserId: req.userId! }] },
     include: { requester: { include: { profile: true } }, slot: true, activity: true, post: true },
     orderBy: { createdAt: "desc" },
   });
@@ -48,12 +80,14 @@ activityRequestsRouter.get("/pending", async (req: AuthedRequest, res) => {
 // F8: "sent" queue for the requester — their own requests, pending or approved
 // (rejected ones simply aren't returned, so they fall out of this tab on their own).
 // Approved requests carry the chatId the approval created/reopened, so the client
-// can offer a "Start a chat" CTA straight from here.
+// can offer a "Start a chat" CTA straight from here. Covers both the post flow
+// and the direct-to-user flow, since either can be the recipient here.
 activityRequestsRouter.get("/sent", async (req: AuthedRequest, res) => {
   const requests = await prisma.activityRequest.findMany({
     where: { requesterId: req.userId!, status: { in: ["pending", "approved"] } },
     include: {
       post: { include: { author: { include: { profile: true } } } },
+      targetUser: { include: { profile: true } },
       slot: true,
       activity: true,
     },
@@ -63,7 +97,7 @@ activityRequestsRouter.get("/sent", async (req: AuthedRequest, res) => {
   const withChat = await Promise.all(
     requests.map(async (request) => {
       if (request.status !== "approved") return { ...request, chatId: null };
-      const [userAId, userBId] = [request.post.authorId, request.requesterId].sort();
+      const [userAId, userBId] = [recipientId(request), request.requesterId].sort();
       const chat = await prisma.chat.findFirst({
         where: { userAId, userBId, activityId: request.activityId },
         select: { id: true },
@@ -75,28 +109,48 @@ activityRequestsRouter.get("/sent", async (req: AuthedRequest, res) => {
   res.json(withChat);
 });
 
-// F8: approve — transactional: request -> approved, slot -> filled, chat created
-// (reopening a previously-closed chat with the same pair instead of duplicating),
-// post -> inactive once all slots are filled, notification dispatched async.
+// F8: approve — transactional: request -> approved, (post flow only) slot ->
+// filled + post inactive once full, chat created (reopening a previously-
+// closed chat with the same pair instead of duplicating), notification async.
 activityRequestsRouter.post("/:id/approve", async (req: AuthedRequest, res) => {
   const request = await prisma.activityRequest.findUniqueOrThrow({
     where: { id: req.params.id },
     include: { post: true },
   });
-  if (request.post.authorId !== req.userId) {
-    res.status(403).json({ error: "Not the post owner" });
+  if (recipientId(request) !== req.userId) {
+    res.status(403).json({ error: "Not the request recipient" });
     return;
   }
 
-  const [userAId, userBId] = [request.post.authorId, request.requesterId].sort();
+  // Direct flow only (F3/F4): cap approvals at the recipient's own
+  // "how many partners" setting for this sport. Each approval still gets its
+  // own 1:1 chat with the recipient (a single shared group chat needs the
+  // chat_participants restructuring tracked separately for Communities).
+  if (request.targetUserId) {
+    const post = await prisma.activityPost.findUnique({
+      where: { authorId_activityId: { authorId: request.targetUserId, activityId: request.activityId } },
+    });
+    const maxParticipants = post?.maxParticipants ?? 1;
+    const approvedCount = await prisma.activityRequest.count({
+      where: { targetUserId: request.targetUserId, activityId: request.activityId, status: "approved" },
+    });
+    if (approvedCount >= maxParticipants) {
+      res.status(409).json({ error: "This activity is full" });
+      return;
+    }
+  }
+
+  const [userAId, userBId] = [recipientId(request), request.requesterId].sort();
 
   const chat = await prisma.$transaction(async (tx) => {
     await tx.activityRequest.update({ where: { id: request.id }, data: { status: "approved", decidedAt: new Date() } });
-    await tx.activityPostSlot.update({ where: { id: request.slotId }, data: { isFilled: true } });
 
-    const remainingOpenSlots = await tx.activityPostSlot.count({ where: { postId: request.postId, isFilled: false } });
-    if (remainingOpenSlots === 0) {
-      await tx.activityPost.update({ where: { id: request.postId }, data: { status: "inactive" } });
+    if (request.postId && request.slotId) {
+      await tx.activityPostSlot.update({ where: { id: request.slotId }, data: { isFilled: true } });
+      const remainingOpenSlots = await tx.activityPostSlot.count({ where: { postId: request.postId, isFilled: false } });
+      if (remainingOpenSlots === 0) {
+        await tx.activityPost.update({ where: { id: request.postId }, data: { status: "inactive" } });
+      }
     }
 
     const existingChat = await tx.chat.findFirst({
@@ -132,8 +186,8 @@ activityRequestsRouter.post("/:id/reject", async (req: AuthedRequest, res) => {
     where: { id: req.params.id },
     include: { post: true },
   });
-  if (request.post.authorId !== req.userId) {
-    res.status(403).json({ error: "Not the post owner" });
+  if (recipientId(request) !== req.userId) {
+    res.status(403).json({ error: "Not the request recipient" });
     return;
   }
   await prisma.activityRequest.update({ where: { id: request.id }, data: { status: "rejected", decidedAt: new Date() } });

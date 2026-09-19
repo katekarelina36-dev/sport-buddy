@@ -69,7 +69,8 @@ export default function RequestsScreen() {
             <Card style={{ gap: spacing.sm }}>
               <Text style={styles.name}>{item.requester.profile?.displayName}</Text>
               <Text style={styles.meta}>
-                {item.activity.name} · {new Date(item.slot.date).toDateString()} {item.slot.startTime}
+                {item.activity.name}
+                {item.slot ? ` · ${new Date(item.slot.date).toDateString()} ${item.slot.startTime}` : ""}
               </Text>
               <View style={styles.row}>
                 <Button label="Approve" onPress={() => approve(item.id)} />
@@ -84,20 +85,24 @@ export default function RequestsScreen() {
           keyExtractor={(r) => r.id}
           contentContainerStyle={{ gap: spacing.md }}
           ListEmptyComponent={<Text style={styles.empty}>You haven't sent any requests yet.</Text>}
-          renderItem={({ item }) => (
-            <Card style={[{ gap: spacing.sm }, item.status === "approved" && styles.approvedCard]}>
-              <View style={styles.cardHeader}>
-                <Text style={styles.name}>{item.post.author.profile?.displayName}</Text>
-                <Badge label={item.status === "approved" ? "Approved" : "Pending"} tone={item.status === "approved" ? "sage" : "coral"} />
-              </View>
-              <Text style={styles.meta}>
-                {item.activity.name} · {new Date(item.slot.date).toDateString()} {item.slot.startTime}
-              </Text>
-              {item.status === "approved" && item.chatId && (
-                <Button label="Start a chat" onPress={() => router.push(`/chat/${item.chatId}`)} />
-              )}
-            </Card>
-          )}
+          renderItem={({ item }) => {
+            const recipientProfile = item.post?.author.profile ?? item.targetUser?.profile;
+            return (
+              <Card style={[{ gap: spacing.sm }, item.status === "approved" && styles.approvedCard]}>
+                <View style={styles.cardHeader}>
+                  <Text style={styles.name}>{recipientProfile?.displayName}</Text>
+                  <Badge label={item.status === "approved" ? "Approved" : "Pending"} tone={item.status === "approved" ? "sage" : "coral"} />
+                </View>
+                <Text style={styles.meta}>
+                  {item.activity.name}
+                  {item.slot ? ` · ${new Date(item.slot.date).toDateString()} ${item.slot.startTime}` : ""}
+                </Text>
+                {item.status === "approved" && item.chatId && (
+                  <Button label="Start a chat" onPress={() => router.push(`/chat/${item.chatId}`)} />
+                )}
+              </Card>
+            );
+          }}
         />
       )}
     </View>

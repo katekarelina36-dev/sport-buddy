@@ -8,9 +8,10 @@ export const colors = {
   offWhite: "#FAFAFA",
   charcoal: "#1E293B",
   warmError: "#E0654A", // warm, on-brand error — not harsh red
+  error: "#E53E3E",
   white: "#FFFFFF",
-  border: "#EEF1F5",
-  muted: "#8A94A6",
+  border: "#E2E8F0",
+  muted: "#64748B",
 };
 
 export const radii = {

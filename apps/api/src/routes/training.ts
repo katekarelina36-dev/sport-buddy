@@ -78,20 +78,54 @@ trainingRouter.post("/", async (req: AuthedRequest, res) => {
   res.status(201).json(training);
 });
 
+const rescheduleSchema = z.object({
+  scheduledAt: z.string().datetime(),
+  locationText: z.string().optional(),
+});
+
+// Bug fix batch, section 5: tapping the chat's sticky banner re-opens the
+// Schedule Event sheet "in edit mode" for the currently-scheduled Event.
+trainingRouter.patch("/:id", async (req: AuthedRequest, res) => {
+  const parsed = rescheduleSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.flatten() });
+    return;
+  }
+  const training = await prisma.trainingSession.update({
+    where: { id: req.params.id },
+    data: { scheduledAt: new Date(parsed.data.scheduledAt), locationText: parsed.data.locationText },
+  });
+  res.json(training);
+});
+
 trainingRouter.post("/:id/cancel", async (req: AuthedRequest, res) => {
   await prisma.trainingSession.update({ where: { id: req.params.id }, data: { status: "cancelled" } });
   res.json({ ok: true });
 });
 
-const completeFirstSchema = z.object({
+const completeSchema = z.object({
   didHappen: z.boolean(),
   wouldPlayAgain: z.boolean(),
   reasonIfNo: z.string().optional(),
 });
 
-// F14: mutual confirmation for the FIRST event between a pair.
-trainingRouter.post("/:id/complete-first", async (req: AuthedRequest, res) => {
-  const parsed = completeFirstSchema.safeParse(req.body);
+async function closeChatOnce(chatId: string): Promise<void> {
+  const chat = await prisma.chat.findUniqueOrThrow({ where: { id: chatId } });
+  if (chat.isClosed) return;
+  await prisma.$transaction([
+    prisma.chat.update({ where: { id: chatId }, data: { isClosed: true } }),
+    prisma.message.create({ data: { chatId, type: "system", body: "This chat has been closed." } }),
+  ]);
+}
+
+// Bug fix batch 2, Bug 1: "Did this session take place?" / "Would you play
+// again?" now applies to every completed Event, not just the first — a
+// unilateral "No" closes the chat right away (no reason to wait for the
+// other side); a "Yes" either resolves immediately (if the other side has
+// already answered) or leaves the Event "scheduled" with this user's answer
+// recorded, so the client can show "waiting for them to confirm" (Case C).
+trainingRouter.post("/:id/complete", async (req: AuthedRequest, res) => {
+  const parsed = completeSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.flatten() });
     return;
@@ -107,11 +141,15 @@ trainingRouter.post("/:id/complete-first", async (req: AuthedRequest, res) => {
       : { completedByUserB: true, didHappenB: didHappen, wouldPlayAgainB: wouldPlayAgain, reasonNoB: reasonIfNo },
   });
 
-  const bothResponded = updated.completedByUserA && updated.completedByUserB;
-  if (bothResponded) {
+  const otherAlreadyResponded = isHost ? updated.completedByUserB : updated.completedByUserA;
+
+  if (!wouldPlayAgain) {
+    // Case B: this user alone can end it.
+    await prisma.trainingSession.update({ where: { id: training.id }, data: { status: "completed", completedAt: new Date() } });
+    await closeChatOnce(training.chatId);
+  } else if (otherAlreadyResponded) {
     const bothHappened = Boolean(updated.didHappenA && updated.didHappenB);
     const bothWantToContinue = Boolean(updated.wouldPlayAgainA && updated.wouldPlayAgainB);
-
     await prisma.trainingSession.update({ where: { id: training.id }, data: { status: "completed", completedAt: new Date() } });
 
     if (bothHappened) {
@@ -121,24 +159,12 @@ trainingRouter.post("/:id/complete-first", async (req: AuthedRequest, res) => {
         await prisma.userProfile.update({ where: { userId: training.participantId }, data: { successfulTrainingsCount: { increment: 1 } } });
       });
     }
-
     if (!bothWantToContinue) {
-      await prisma.chat.update({ where: { id: training.chatId }, data: { isClosed: true } });
+      await closeChatOnce(training.chatId);
     }
   }
+  // else: Case C — this user said yes, the other hasn't answered yet; the
+  // Event stays "scheduled" and completedByUser{A,B} alone signals the wait.
 
   res.json(await prisma.trainingSession.findUniqueOrThrow({ where: { id: training.id } }));
-});
-
-// F14: all subsequent events — single tap by either participant.
-trainingRouter.post("/:id/complete", async (req: AuthedRequest, res) => {
-  const training = await prisma.trainingSession.update({
-    where: { id: req.params.id },
-    data: { status: "completed", completedAt: new Date() },
-  });
-  enqueue(async () => {
-    await prisma.userProfile.update({ where: { userId: training.hostId }, data: { successfulTrainingsCount: { increment: 1 } } });
-    await prisma.userProfile.update({ where: { userId: training.participantId }, data: { successfulTrainingsCount: { increment: 1 } } });
-  });
-  res.json(training);
 });

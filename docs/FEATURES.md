@@ -6,8 +6,8 @@ Reference for the technical requirements doc (F1–F16). "API" paths are relativ
 |---|---|---|
 | F1 Onboarding / profile creation | `routes/auth.ts`, `routes/profile.ts` | `app/auth/index.tsx`, `app/onboarding/index.tsx` |
 | F2 Home: activity selection | `routes/activities.ts` | `app/(tabs)/index.tsx` |
-| F3 Activity Posts feed | `routes/activityPosts.ts` (GET /) | `app/feed/[activityId].tsx` |
-| F4 Activity Post detail | `routes/activityPosts.ts` (GET /:id) | `app/post/[postId].tsx` |
+| F3 Explore Activities feed (user discovery) | `routes/users.ts` (GET /discover) | `app/feed/[activityId].tsx`, `src/components/FilterSheet.tsx` |
+| F4 User profile detail (+ report/block) | `routes/users.ts` (GET /:id, POST /:id/report, POST /:id/block) | `app/user/[userId].tsx` |
 | F5 My Profile | `routes/profile.ts` | `app/(tabs)/profile.tsx` |
 | F6 Availability calendar (shared) | `routes/availability.ts` | `src/components/AvailabilityPicker.tsx`, `app/availability.tsx` |
 | F7 Activity Request flow | `routes/activityRequests.ts` (POST /) | `app/post/[postId].tsx` |
@@ -33,6 +33,18 @@ Reference for the technical requirements doc (F1–F16). "API" paths are relativ
 
 None of these block the core loop (onboarding → post → request → approve → chat → schedule → challenge → complete) from working end-to-end.
 
+## F1/F3/F4 redesign (pixel spec: name/city/DOB onboarding, profile-discovery feed)
+
+A detailed design spec replaced the original F1/F3/F4 flow with a different discovery model: instead of browsing user-created "Activity Posts," F3 now shows cards of *people* who have set availability for a sport, and F4 is their full profile (not a post). Implemented:
+
+- **F1** is now 4 steps: Name+City → Date of Birth (16+ enforced) → Sports with an inline per-sport level + weekly availability picker → Photo. `UserProfile` gained `city`/`dateOfBirth`; the old single profile-wide `level` field is unused (kept in the schema, harmless) in favor of per-sport `UserActivity.level` (closes the earlier per-sport-level backlog item).
+- **`UserAvailability`** gained an optional `activityId` — `null` rows are "general" availability (F5/F9/F12 still use these), non-null rows are per-sport (set during F1, read by F3/F4).
+- **`ActivityRequest`** now supports two shapes: the legacy `{postId, slotId}` (F7's original Activity Post flow — still functional but has no UI entry point anymore since nothing creates an ActivityPost from the app) and a new direct `{targetUserId, activityId}` (F3/F4's "Send Activity Request" button, no post involved). F8's approve/reject/pending queue handles both.
+- **Report/Block** (previously just a backlog line) is now implemented: `UserReport` and `UserBlock` tables, `POST /users/:id/report`, `POST /users/:id/block`; blocked users are excluded from `/users/discover` in both directions. There's no admin-side view of reports yet — they're just recorded.
+- **Not implemented**: the filter sheet's distance slider is UI-only — `/users/discover` doesn't yet apply `distanceKm` (same PostGIS-radius gap noted above).
+
+None of this blocks trying the new flow end-to-end (onboard with a sport+schedule → browse the feed → open a profile → send a request → F8 → chat).
+
 ## Security backlog: user-uploaded photos
 
 Current state (`lib/media.ts`, `routes/profile.ts` POST `/me/photo`) is a dev-only scaffold and has real gaps before this could hold real users' photos:
@@ -43,3 +55,36 @@ Current state (`lib/media.ts`, `routes/profile.ts` POST `/me/photo`) is a dev-on
 - **Local disk storage** — fine for this dev scaffold; production must move to the S3/GCS `MediaDriver` already stubbed in `lib/media.ts`, with private-by-default bucket ACLs.
 
 None of this blocks continued MVP testing with fake/throwaway photos; it matters before any real user's photo touches this system.
+
+## Round 2 (F1/F3/F4/F7 spec) — implemented
+
+The user uploaded three new spec docs and chose to implement the "Round 2" doc (F1/F3/F4/F7) first, explicitly deferring the other two (see below). Changes:
+
+- **Sports catalog** expanded from 10 to 25 activities (`apps/api/prisma/seed.ts`), with slug-based IDs so multi-word names ("Table Tennis", "Gym / Fitness", "Martial Arts", "Ice Skating") get stable, readable IDs.
+- **`SkillLevel`** gained a 4th level, `pro`, across the schema, the API route validation, and every mobile UI list (`FilterSheet`, `SportAvailabilityCard`).
+- **Demo data**: 10 realistic seed profiles (name/age/sport/level), each with a Warsaw city, computed date of birth, an avatar photo, and 2–4 randomized weekly availability days (07:00–21:00 range) per sport — so the Explore feed is populated immediately on first launch, per spec.
+- **F1 onboarding / F5 "Preferred Activities"**: the sport-level + weekly-availability picker used in onboarding step 3 was extracted into a shared component, `src/components/SportAvailabilityCard.tsx`, and F5 got its own dedicated editor screen (`app/profile/activities.tsx`, reachable via an "Edit" link on My Profile) instead of being folded into the general profile-edit screen. `app/profile/edit.tsx` now only handles photo/name/city/bio.
+- **Home screen (F2)** retitled "Explore Activities" with a 3-column square-card sport grid (was a 2-column list).
+- **F3 feed filter**: the distance slider was removed (not spec'd for Round 2); filters are now level + day only. The feed's "Send Activity Request" no longer fires instantly — it opens a bottom sheet (see F7 below).
+- **F4 profile detail**: availability is now shown only for the sport the viewer navigated through (`?activityId=` query param, the spec's "context rule"), rendered as a new tappable weekly-calendar widget (`src/components/WeeklyAvailabilityWidget.tsx`, `variant="view"`) instead of a plain list. Other sports the user plays are listed under "Also Plays" (level badge only, no availability).
+- **F7 Send Activity Request**: changed from a single tap to a required flow — a new bottom sheet (`src/components/SendActivityRequestSheet.tsx`) makes the requester pick one specific day+time slot from the target's per-sport availability (via `WeeklyAvailabilityWidget`, `variant="select"`) before "Send Request" is enabled. `ActivityRequest` gained `selectedDayOfWeek`/`selectedStartTime`/`selectedEndTime` so the recipient sees the exact slot requested in F8 (F8's UI itself doesn't yet surface these fields — see gap below).
+
+**Known gaps in this batch:**
+- F8 (pending requests screen) doesn't yet display the `selectedDayOfWeek/StartTime/EndTime` captured by F7 — the data is stored and returned by the API, but the requests-list UI hasn't been updated to show it.
+- **Deferred by explicit user choice**, not started at the time: `BugFixes_ScheduleEvent_ActivityPost.md` — **now implemented, see below.** `F_Community_GroupActivity.md` remains deferred (Group Activity type selector, full Communities tab, group chat restructuring, community creation flow, 3-events unlock modal).
+
+## Bug fixes: Schedule Event + Activity Post (implemented)
+
+- **FAB / manual "Create Activity" removed.** There was already no FAB and no create screen left after the Round 2 redesign; the one remaining piece of the old manual flow — the unreachable `app/post/[postId].tsx` detail screen and its `POST /activity-posts` manual-create endpoint — has now been deleted outright, since nothing links to either.
+- **Activity Posts are now fully auto-generated.** Saving per-sport availability (`PUT /availability?activityId=`, used by F1 onboarding and F5's "Preferred Activities") upserts an `ActivityPost` for that (user, sport) pair: `status: "active"` while the user has at least one day set, `status: "inactive"` the moment they clear all days for that sport. `ActivityPost` gained `autoGenerated` (always `true` now) and `maxParticipants`.
+- **"How many partners are you looking for?" stepper** added to `SportAvailabilityCard` (shared by onboarding step 3 and F5), below the day/time availability — a −/+ stepper (1-20, default 1) with the spec's helper copy ("You'll be matched 1:1" / "A group chat will be created when partners are found"). The value is sent as `?maxParticipants=` on the same availability save call; `GET /activity-posts/mine` (new) lets F5 read back the current value when re-opening the editor.
+- **Group-size enforcement**: approving an activity request (`POST /activity-requests/:id/approve`) now counts the recipient's already-approved requests for that sport against their own `maxParticipants` and rejects with 409 "This activity is full" once the cap is hit. **Gap**: each approval still opens its own ordinary 1:1 chat with the organiser rather than one shared group chat — a true multi-person chat needs the `chat_participants` restructuring called out as its own line item in the (still-deferred) Communities doc, so it wasn't built here to avoid a half-finished group-chat model.
+- **Schedule Event bottom sheet rebuilt** (`src/components/ScheduleEventSheet.tsx`, used from `app/chat/[chatId].tsx`): opens to 75-90% of screen height with scrollable content and a sticky "Schedule Event" button that never scrolls out of view; shows the other participant's availability for the chat's sport as a tappable weekly widget (or "Suggest a time that works for you" if they have none); native date picker (today or later) + native time picker (15-min steps) with a confirmation pill once both are set; optional location field; disabled until date and time are both chosen. A new `PATCH /training/:id` endpoint backs "edit mode."
+- **Chat sticky banner rebuilt** to match the spec: sport icon+name, formatted date/time, location if set, and a status pill ("Scheduled" / "Completed ✓"). Tapping a "Scheduled" banner re-opens the Schedule Event sheet pre-filled with its current values; a "Completed" banner is not tappable. The existing "Complete" action (F14) is kept as a small link inside the banner rather than replacing the tap-to-edit behavior the spec asks for.
+
+## Bug fixes, round 2 (implemented)
+
+- **Bug 1 — post-completion flow rebuilt.** The "Complete" affordance now only appears in the chat's sticky banner once the Event's `scheduledAt` has passed, and opens a new `src/components/CompletionSheet.tsx` (title "How did it go?", Q1/Q2 Yes-No buttons, a single-select reason picker with a free-text "Other" when Q2 is "No"). This flow now applies to every Event, not just a pair's first — `POST /training/:id/complete` (renamed from `/complete-first`) unifies what used to be two separate single-tap/mutual code paths. A "No" to "would you play again?" closes the chat immediately (no need to wait on the other side, since one veto is decisive); a "Yes" resolves right away if the other participant already answered, otherwise the Event stays "scheduled" and the banner shows "Waiting for [name] to confirm…" (Case C). Once resolved: both-yes shows a green "📅 Schedule your next session" banner that opens the Schedule Event sheet (Case A); anyone's "no" shows a grey "Session completed" banner, hides the composer, and inserts a one-time "This chat has been closed." system message (`closeChatOnce` guards against duplicate inserts on repeat calls). The Chats list now shows a "Closed" pill next to a closed chat's name.
+- **Bug 2 — chat header rebuilt.** `app/chat/[chatId].tsx` now has `headerShown: false` in `_layout.tsx` and renders its own header: back arrow, the other participant's photo+name (fetched via `GET /users/:id`, already needed for the Schedule Event sheet's partner-availability widget), the chat's sport name as a status line, and the existing Report/Block menu (ported from `user/[userId].tsx`) — replacing the generic "Chat" title.
+- **Bug 3 — message avatars + bubble restyle.** Each message row now shows a 28×28 avatar, but only on the last message of a consecutive run from the same sender (computed by peeking at the next item in the `FlatList`'s `renderItem`). Bubbles got the spec's asymmetric corners (flat corner on the sender's side), an outlined white style for the other person's messages vs. solid coral for the current user's, and a timestamp below each bubble. Plain system messages (e.g. the new chat-closed notice) render as a centered grey pill with no avatar, distinct from the existing coral challenge-card style.
+- **Bug 4 — clipped Save buttons fixed.** `app/profile/activities.tsx` and `app/profile/edit.tsx` both had their primary CTA living either in a header link or at the end of scrollable content; both are now moved to a fixed footer `View` rendered as a sibling of the `ScrollView` (never inside it), with `paddingBottom: 80` on the scroll content so the last card isn't hidden behind the footer. Every other scroll+CTA screen (onboarding, `ScheduleEventSheet`, `SendActivityRequestSheet`, `FilterSheet`) was audited against the same rule and was already compliant.

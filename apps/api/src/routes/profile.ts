@@ -17,36 +17,46 @@ profileRouter.get("/me", async (req: AuthedRequest, res) => {
 
 const onboardingSchema = z.object({
   displayName: z.string().min(1).optional(),
+  city: z.string().min(1).optional(),
+  dateOfBirth: z.string().datetime().optional(),
   bio: z.string().optional(),
-  level: z.enum(["beginner", "intermediate", "advanced"]).optional(),
   locationLat: z.number().optional(),
   locationLng: z.number().optional(),
   timezone: z.string().optional(),
-  preferredActivityIds: z.array(z.string()).optional(),
+  // F1 step 3: per-sport level, replacing a single profile-wide level.
+  preferredActivities: z.array(z.object({ activityId: z.string(), level: z.enum(["beginner", "intermediate", "advanced"]) })).optional(),
 });
 
+const MIN_AGE_YEARS = 16;
+
 // F1 + F5: each field is independently persisted; onboarding is "complete" once
-// name, photo, >=1 activity, and level are all present (checked on read below).
+// name, city, date of birth (>=16), photo, and >=1 sport are present (checked below).
 profileRouter.patch("/me", async (req: AuthedRequest, res) => {
   const parsed = onboardingSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.flatten() });
     return;
   }
-  const { preferredActivityIds, ...profileFields } = parsed.data;
+  const { preferredActivities, dateOfBirth, ...profileFields } = parsed.data;
+
+  if (dateOfBirth && !isAtLeastAge(new Date(dateOfBirth), MIN_AGE_YEARS)) {
+    res.status(400).json({ error: `Must be at least ${MIN_AGE_YEARS} years old` });
+    return;
+  }
 
   await prisma.userProfile.update({
     where: { userId: req.userId! },
-    data: profileFields,
+    data: { ...profileFields, ...(dateOfBirth ? { dateOfBirth: new Date(dateOfBirth) } : {}) },
   });
 
-  if (preferredActivityIds) {
-    await prisma.userActivity.deleteMany({ where: { userId: req.userId!, activityId: { notIn: preferredActivityIds } } });
-    for (const activityId of preferredActivityIds) {
+  if (preferredActivities) {
+    const activityIds = preferredActivities.map((a) => a.activityId);
+    await prisma.userActivity.deleteMany({ where: { userId: req.userId!, activityId: { notIn: activityIds } } });
+    for (const { activityId, level } of preferredActivities) {
       await prisma.userActivity.upsert({
         where: { userId_activityId: { userId: req.userId!, activityId } },
-        update: { isPreferred: true },
-        create: { userId: req.userId!, activityId, isPreferred: true },
+        update: { isPreferred: true, level },
+        create: { userId: req.userId!, activityId, isPreferred: true, level },
       });
     }
   }
@@ -57,6 +67,12 @@ profileRouter.patch("/me", async (req: AuthedRequest, res) => {
   }
   res.json(await loadFullProfile(req.userId!));
 });
+
+function isAtLeastAge(dateOfBirth: Date, years: number): boolean {
+  const cutoff = new Date();
+  cutoff.setFullYear(cutoff.getFullYear() - years);
+  return dateOfBirth <= cutoff;
+}
 
 // F5: photo upload, sent as multipart/form-data (field name "photo") — the
 // standard, robust way to move binary files from a mobile client; a raw
@@ -124,8 +140,9 @@ export async function loadFullProfile(userId: string) {
 function isOnboardingComplete(profile: Awaited<ReturnType<typeof loadFullProfile>>): boolean {
   return Boolean(
     profile.profile?.displayName &&
+      profile.profile?.city &&
+      profile.profile?.dateOfBirth &&
       profile.profile?.photoUrl &&
-      profile.profile?.level &&
       profile.activities.length > 0
   );
 }
