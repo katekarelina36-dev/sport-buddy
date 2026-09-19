@@ -2,6 +2,7 @@ import { useState } from "react";
 import { View, Text, TextInput, StyleSheet, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "../../src/components/Button";
+import { LoginArt } from "../../src/components/icons/LoginArt";
 import { colors, spacing, typography, radii } from "../../src/theme";
 import { useAuth } from "../../src/hooks/useAuth";
 
@@ -27,7 +28,11 @@ export default function AuthScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom + spacing.lg }]}>
-      <Text style={styles.title}>Sport Buddy</Text>
+      <View style={styles.artBackground} pointerEvents="none">
+        <LoginArt />
+      </View>
+
+      <Text style={styles.title}>Teameo</Text>
       <Text style={styles.subtitle}>Find a sport partner in a couple of clicks.</Text>
 
       <TextInput
@@ -55,6 +60,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     justifyContent: "center",
     gap: spacing.md,
+    overflow: "hidden",
+  },
+  artBackground: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    opacity: 0.08,
   },
   title: { fontFamily: typography.fontFamilyBold, fontSize: 32, color: colors.charcoal, textAlign: "center" },
   subtitle: { fontFamily: typography.fontFamilyRegular, color: colors.muted, textAlign: "center", marginBottom: spacing.lg },
