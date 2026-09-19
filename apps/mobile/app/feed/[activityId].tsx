@@ -98,7 +98,7 @@ export default function FeedScreen() {
 
                 <View style={styles.badgeRow}>
                   <Badge label={primaryActivity.activity.name} tone="coral" />
-                  <Badge label={primaryActivity.level} />
+                  <Badge label={primaryActivity.level} tone="neutral" />
                 </View>
 
                 {slots.length > 0 && (
