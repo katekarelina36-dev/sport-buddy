@@ -160,7 +160,7 @@ function DayTimeRow({
 }
 
 const styles = StyleSheet.create({
-  card: { backgroundColor: "#FFF5F3", borderWidth: 1.5, borderColor: colors.coral, borderRadius: radii.sm, padding: spacing.md, marginTop: spacing.sm },
+  card: { backgroundColor: colors.primaryTint1, borderWidth: 1.5, borderColor: colors.coral, borderRadius: radii.sm, padding: spacing.md, marginTop: spacing.sm },
   titleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
   title: { fontFamily: typography.fontFamilyBold, fontSize: 15, color: colors.charcoal },
   removeButton: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },

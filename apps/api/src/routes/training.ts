@@ -10,6 +10,27 @@ import { emitToUser } from "../sockets/chat.js";
 export const trainingRouter = Router();
 trainingRouter.use(requireAuth);
 
+// UI Redesign Final, section 9: Completed Events list on My Profile.
+trainingRouter.get("/completed", async (req: AuthedRequest, res) => {
+  const trainings = await prisma.trainingSession.findMany({
+    where: { status: "completed", OR: [{ hostId: req.userId! }, { participantId: req.userId! }] },
+    include: {
+      activity: true,
+      host: { include: { profile: true } },
+      participant: { include: { profile: true } },
+    },
+    orderBy: { completedAt: "desc" },
+  });
+  res.json(
+    trainings.map((t) => ({
+      id: t.id,
+      activity: t.activity,
+      completedAt: t.completedAt,
+      partner: (t.hostId === req.userId! ? t.participant : t.host).profile,
+    }))
+  );
+});
+
 // Create Community, "Sport" section: sports the caller has actually completed
 // an Event in (any chat), not just their preferred-activities list.
 trainingRouter.get("/completed-sports", async (req: AuthedRequest, res) => {

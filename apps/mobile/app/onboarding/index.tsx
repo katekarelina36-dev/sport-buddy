@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
     padding: spacing.xs,
     gap: 4,
   },
-  sportCardSelected: { borderColor: colors.coral, backgroundColor: "#FFF5F3" },
+  sportCardSelected: { borderColor: colors.coral, backgroundColor: colors.primaryTint1 },
   sportIcon: { fontSize: 24 },
   sportName: { fontFamily: typography.fontFamily, fontSize: 12, color: colors.charcoal, textAlign: "center" },
   photoCircle: {

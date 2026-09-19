@@ -72,6 +72,6 @@ const styles = StyleSheet.create({
   rowDisabled: { opacity: 0.5 },
   rowLabel: { flex: 1, fontFamily: typography.fontFamilyRegular, fontSize: 16, color: colors.charcoal },
   chevron: { fontFamily: typography.fontFamilyBold, fontSize: 18, color: colors.muted },
-  scheduledPill: { backgroundColor: "#FFF5F3", height: 22, paddingHorizontal: 8, borderRadius: 11, justifyContent: "center" },
+  scheduledPill: { backgroundColor: colors.primaryTint1, height: 22, paddingHorizontal: 8, borderRadius: 11, justifyContent: "center" },
   scheduledPillText: { fontFamily: typography.fontFamily, fontSize: 12, color: colors.coral },
 });

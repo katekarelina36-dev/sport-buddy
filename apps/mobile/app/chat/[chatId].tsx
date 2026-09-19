@@ -238,6 +238,15 @@ export default function ChatScreen() {
   const visibleTrainings = eventsExpanded ? activeTrainings : activeTrainings.slice(0, EVENTS_COLLAPSED_LIMIT);
   const hiddenCount = activeTrainings.length - EVENTS_COLLAPSED_LIMIT;
 
+  // UI Redesign Final, section 6: the challenge card moves out of the
+  // scrollable message list into the fixed header, shown only for the
+  // soonest upcoming scheduled Event (activeTrainings is sorted ascending).
+  const soonestTraining = activeTrainings[0];
+  const challengeMessage = soonestTraining
+    ? messages.find((m) => m.trainingId === soonestTraining.id && m.body.startsWith("Challenge:"))
+    : undefined;
+  const listMessages = messages.filter((m) => !m.body.startsWith("Challenge:"));
+
   return (
     <View style={styles.container}>
       {/* Bug fix batch 3, section 6: header uses the device's real safe-area
@@ -317,12 +326,22 @@ export default function ChatScreen() {
         </View>
       )}
 
+      {/* Section 6: fixed challenge card for the soonest upcoming Event. */}
+      {challengeMessage && (
+        <View style={styles.challengeHeaderCard}>
+          <Text style={styles.challengeHeaderIcon}>⚡</Text>
+          <Text style={styles.challengeHeaderText} numberOfLines={2}>
+            {challengeMessage.body.replace("Challenge: ", "")}
+          </Text>
+        </View>
+      )}
+
       <FlatList
-        data={messages}
+        data={listMessages}
         keyExtractor={(m) => m.id}
         contentContainerStyle={{ padding: spacing.md, gap: 4 }}
         renderItem={({ item, index }) => {
-          const next = messages[index + 1];
+          const next = listMessages[index + 1];
           const showAvatar = item.type === "text" && (!next || next.senderId !== item.senderId || next.type !== "text");
           return (
             <MessageBubble
@@ -330,7 +349,6 @@ export default function ChatScreen() {
               mine={item.senderId === profile?.id}
               showAvatar={showAvatar}
               avatarUri={item.senderId === profile?.id ? profile?.profile?.photoUrl : partner?.profile?.photoUrl}
-              trainings={trainings}
             />
           );
         }}
@@ -424,35 +442,21 @@ export default function ChatScreen() {
 
 // Message avatars grouped to the last message of a consecutive run from the
 // same sender; asymmetric bubble corners; a timestamp below the bubble.
-// System messages ("This chat has been closed.", completion notices, challenge
-// cards) render as centered pills with no avatar — the challenge card
-// additionally turns green once its linked Event's status is completed.
+// System messages ("This chat has been closed.", completion notices) render
+// as centered pills with no avatar. The challenge card itself is no longer
+// rendered inline here — see the fixed header card, section 6.
 function MessageBubble({
   message,
   mine,
   showAvatar,
   avatarUri,
-  trainings,
 }: {
   message: Message;
   mine: boolean;
   showAvatar: boolean;
   avatarUri?: string | null;
-  trainings: TrainingSession[];
 }) {
   if (message.type === "system") {
-    if (message.body.startsWith("Challenge:")) {
-      const training = trainings.find((t) => t.id === message.trainingId);
-      const completed = training?.status === "completed";
-      return (
-        <View style={[styles.challengeCard, completed && styles.challengeCardCompleted]}>
-          <Text style={[styles.challengeLabel, completed && styles.challengeLabelCompleted]}>
-            {completed ? "✅ Challenge completed" : "🏆 Challenge"}
-          </Text>
-          <Text style={styles.challengeBody}>{message.body.replace("Challenge: ", "")}</Text>
-        </View>
-      );
-    }
     return (
       <View style={styles.systemPill}>
         <Text style={styles.systemPillText}>{message.body}</Text>
@@ -498,7 +502,7 @@ const styles = StyleSheet.create({
   completeButton: { height: 32, paddingHorizontal: 12, borderRadius: 16, backgroundColor: colors.sageDark, justifyContent: "center" },
   completeButtonLabel: { fontFamily: typography.fontFamilyBold, fontSize: 12, color: colors.white },
   bannerWaitingText: { fontFamily: typography.fontFamilyRegular, fontSize: 13, color: colors.muted, textAlign: "center" },
-  bannerNextSession: { backgroundColor: "#F0FDF4", alignItems: "center", height: 52, minHeight: 52 },
+  bannerNextSession: { backgroundColor: colors.secondaryTint1, alignItems: "center", height: 52, minHeight: 52 },
   bannerNextSessionText: { fontFamily: typography.fontFamilyBold, fontSize: 14, color: colors.sageDark },
   bannerClosed: { backgroundColor: "#F8FAFC", alignItems: "center" },
   bannerClosedText: { fontFamily: typography.fontFamilyRegular, fontSize: 14, color: colors.muted },
@@ -516,13 +520,20 @@ const styles = StyleSheet.create({
   timestamp: { fontFamily: typography.fontFamilyRegular, fontSize: 11, color: colors.muted, marginTop: 2 },
   timestampMine: { textAlign: "right" },
   timestampTheirs: { textAlign: "left" },
-  systemPill: { alignSelf: "center", backgroundColor: "#F1F5F9", borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8, marginVertical: spacing.xs },
+  systemPill: { alignSelf: "center", backgroundColor: colors.borderSubtle, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8, marginVertical: spacing.xs },
   systemPillText: { fontFamily: typography.fontFamilyRegular, fontSize: 13, color: colors.muted, fontStyle: "italic", textAlign: "center" },
-  challengeCard: { borderWidth: 1.5, borderColor: colors.coral, borderRadius: radii.sm, padding: spacing.sm, backgroundColor: colors.white, alignSelf: "center" },
-  challengeCardCompleted: { borderColor: colors.sageDark, backgroundColor: colors.sageLight },
-  challengeLabel: { fontFamily: typography.fontFamily, color: colors.coral, marginBottom: spacing.xs },
-  challengeLabelCompleted: { color: colors.sageDark },
-  challengeBody: { fontFamily: typography.fontFamilyRegular, color: colors.charcoal },
+  challengeHeaderCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    backgroundColor: colors.primaryTint1,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    paddingVertical: 10,
+    paddingHorizontal: spacing.md,
+  },
+  challengeHeaderIcon: { fontSize: 18, color: colors.coral },
+  challengeHeaderText: { flex: 1, fontFamily: typography.fontFamilyRegular, fontSize: 13, color: colors.charcoal },
   composerRow: { flexDirection: "row", gap: spacing.sm, padding: spacing.md, alignItems: "center" },
   input: { flex: 1, backgroundColor: colors.white, borderRadius: radii.sm, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md, minHeight: 44 },
   closedBanner: { padding: spacing.md, alignItems: "center" },

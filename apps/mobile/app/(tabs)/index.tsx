@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../../src/api/client";
 import { ActivityCard } from "../../src/components/ActivityCard";
 import { ActivityIcon } from "../../src/components/icons/ActivityIcon";
-import { EXPLORE_ACTIVITIES, ACTIVITY_IMAGES, ACTIVITY_PLACEHOLDER_TINT } from "../../src/constants/exploreActivities";
+import { EXPLORE_ACTIVITIES } from "../../src/constants/exploreActivities";
 import { colors, spacing, typography, radii } from "../../src/theme";
 import type { Activity } from "../../src/api/types";
 
@@ -99,13 +99,7 @@ export default function HomeScreen() {
           keyExtractor={(a) => a.id}
           contentContainerStyle={styles.listContent}
           renderItem={({ item, index }) => (
-            <ActivityCard
-              name={item.name}
-              image={ACTIVITY_IMAGES[item.name as (typeof EXPLORE_ACTIVITIES)[number]]}
-              tint={ACTIVITY_PLACEHOLDER_TINT[item.name as (typeof EXPLORE_ACTIVITIES)[number]] ?? colors.border}
-              roundedTop={index === 0}
-              onPress={() => goToFeed(item)}
-            />
+            <ActivityCard name={item.name} photoUrl={item.iconUrl} roundedTop={index === 0} onPress={() => goToFeed(item)} />
           )}
         />
       </View>

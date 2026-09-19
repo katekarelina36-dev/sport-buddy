@@ -1,21 +1,32 @@
-// Design tokens straight from the tech spec's "Cross-Cutting Non-Functional Requirements".
+// Design tokens — UI Redesign Final palette. Variable names are kept as-is
+// (coral/sageDark/etc.) so every existing screen picks up the new colors
+// automatically; new tokens are added alongside for the redesign's specific
+// tint/text/surface needs.
 export const colors = {
-  coral: "#1907A7",
-  sageLight: "rgba(255, 136, 0, 0.23)",
-  sageDark: "#FF8800",
-  offWhite: "#EDECEF",
-  charcoal: "#04001D",
-  warmError: "#E0654A", // warm, on-brand error — not harsh red
-  error: "#E53E3E",
-  white: "#FFFFFF",
-  border: "#E2E8F0",
-  muted: "#64748B",
-  glassText: "#5F380B",
-  glassGlow: "#FF8800",
-  glassPrimaryText: "#04001D",
-  glassPrimaryTint: "#1907A7",
-  chipNeutralBg: "#E0DFE5",
-  chipNeutralText: "#04001D",
+  coral: "#003161", // --color-primary
+  sageLight: "rgba(0, 106, 103, 0.10)", // secondary tint, used as pill/stat backgrounds
+  sageDark: "#006A67", // --color-secondary
+  offWhite: "#FAFAFA", // --color-bg-screen
+  charcoal: "#1E293B", // --color-text-primary
+  warmError: "#E0654A",
+  error: "#E53E3E", // --color-error
+  white: "#FFFFFF", // --color-surface
+  border: "#E2E8F0", // --color-border
+  borderSubtle: "#F1F5F9", // --color-border-subtle
+  muted: "#64748B", // --color-text-secondary
+  textMuted: "#94A3B8", // --color-text-muted
+  textOnDark: "#F8FAFC", // --color-text-on-dark
+  toastBg: "#1E293B", // --color-toast-bg
+  primaryTint1: "rgba(0, 49, 97, 0.06)",
+  primaryTint2: "rgba(0, 49, 97, 0.12)",
+  secondaryTint1: "rgba(0, 106, 103, 0.06)",
+  secondaryTint2: "rgba(0, 106, 103, 0.12)",
+  glassText: "#003161",
+  glassGlow: "#006A67",
+  glassPrimaryText: "#1E293B",
+  glassPrimaryTint: "#003161",
+  chipNeutralBg: "#E2E8F0",
+  chipNeutralText: "#1E293B",
 };
 
 export const radii = {

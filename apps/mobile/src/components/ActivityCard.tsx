@@ -1,12 +1,12 @@
-import { Pressable, Text, View, StyleSheet, type ImageSourcePropType } from "react-native";
+import { Pressable, Text, View, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
+import { resolveMediaUrl } from "../api/client";
 import { colors, typography } from "../theme";
 
 interface Props {
   name: string;
-  image?: ImageSourcePropType;
-  tint: string;
+  photoUrl?: string | null;
   roundedTop?: boolean;
   onPress: () => void;
 }
@@ -18,7 +18,12 @@ export const ACTIVITY_CARD_HEIGHT = 92;
 // wash on top, bold centered label. Only the very first card in the list
 // gets rounded top corners — every other corner on every card is square, so
 // the stack reads as one continuous strip rather than individual tiles.
-export function ActivityCard({ name, image, tint, roundedTop, onPress }: Props) {
+// The photo comes from Activity.iconUrl (downloaded from Unsplash once and
+// stored via the media pipeline — see apps/api/scripts/downloadSportImages.ts
+// — never fetched from Unsplash at runtime); a sport with no photo yet falls
+// back to a flat brand-gradient tile.
+export function ActivityCard({ name, photoUrl, roundedTop, onPress }: Props) {
+  const uri = resolveMediaUrl(photoUrl);
   return (
     <Pressable
       accessibilityRole="button"
@@ -26,13 +31,18 @@ export function ActivityCard({ name, image, tint, roundedTop, onPress }: Props) 
       onPress={onPress}
       style={[styles.card, roundedTop && styles.roundedTop]}
     >
-      {image ? (
-        <Image source={image} style={[StyleSheet.absoluteFill, styles.photo]} contentFit="cover" blurRadius={50} />
+      {uri ? (
+        <Image source={{ uri }} style={[StyleSheet.absoluteFill, styles.photo]} contentFit="cover" blurRadius={50} />
       ) : (
-        <View style={[StyleSheet.absoluteFill, styles.photo, { backgroundColor: tint }]} />
+        <LinearGradient
+          colors={[colors.coral, colors.sageDark]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
       )}
       <LinearGradient
-        colors={["#EDECEF", "#1907A766"]}
+        colors={[colors.offWhite, `${colors.coral}66`]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={StyleSheet.absoluteFill}

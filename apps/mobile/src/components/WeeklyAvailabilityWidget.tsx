@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
   dayLetter: { fontFamily: typography.fontFamily, fontSize: 14 },
   dayLetterAvailable: { color: colors.white },
   dayLetterUnavailable: { color: "#94A3B8" },
-  expandPanel: { backgroundColor: "#FFF5F3", borderRadius: radii.sm, padding: spacing.sm, marginTop: spacing.sm },
+  expandPanel: { backgroundColor: colors.primaryTint1, borderRadius: radii.sm, padding: spacing.sm, marginTop: spacing.sm },
   expandText: { fontFamily: typography.fontFamilyRegular, fontSize: 14, color: colors.charcoal },
   helperText: { fontFamily: typography.fontFamilyRegular, fontSize: 12, color: colors.muted, fontStyle: "italic", marginTop: spacing.sm },
 });

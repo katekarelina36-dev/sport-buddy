@@ -124,17 +124,28 @@ profileRouter.patch("/me/permissions", async (req: AuthedRequest, res) => {
   res.json(permissions);
 });
 
+// UI Redesign Final, section 4: the Profile Communities tab needs each
+// membership's sport + member count, not just the bare community row.
 export async function loadFullProfile(userId: string) {
-  return prisma.user.findUniqueOrThrow({
+  const user = await prisma.user.findUniqueOrThrow({
     where: { id: userId },
     include: {
       profile: true,
       permissions: true,
       activities: { include: { activity: true } },
       availability: true,
-      communityMembers: { include: { community: true } },
+      communityMembers: {
+        include: { community: { include: { activity: true, _count: { select: { members: true } } } } },
+      },
     },
   });
+  return {
+    ...user,
+    communityMembers: user.communityMembers.map((m) => ({
+      role: m.role,
+      community: { ...m.community, memberCount: m.community._count.members },
+    })),
+  };
 }
 
 function isOnboardingComplete(profile: Awaited<ReturnType<typeof loadFullProfile>>): boolean {

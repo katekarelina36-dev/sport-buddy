@@ -140,6 +140,7 @@ export default function FeedScreen() {
           targetUserName={requestSheetFor.user.profile?.displayName ?? "this user"}
           activityId={activityId}
           activityName={requestSheetFor.primaryActivity.activity.name}
+          activityPhotoUrl={requestSheetFor.primaryActivity.activity.iconUrl}
           slots={requestSheetFor.user.availability
             .filter((s) => s.dayOfWeek !== undefined)
             .map((s) => ({ dayOfWeek: s.dayOfWeek!, startTime: s.startTime, endTime: s.endTime }))}

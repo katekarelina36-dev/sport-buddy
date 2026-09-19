@@ -31,7 +31,7 @@ export type CommunityRoleName = "organiser" | "assistant" | "member";
 
 export interface CommunityMembership {
   role: CommunityRoleName;
-  community: { id: string; name: string; photoUrl: string | null; activity: Activity };
+  community: { id: string; name: string; photoUrl: string | null; activity: Activity; memberCount?: number };
 }
 
 export interface Activity {
@@ -151,6 +151,14 @@ export interface TrainingSession {
   wouldPlayAgainB: boolean | null;
   // Bug fix batch 3, section 4: full Q1/Q2 sheet vs. simple confirm.
   isFirstBetweenUsers: boolean;
+}
+
+// UI Redesign Final, section 9: Completed Events list on My Profile.
+export interface CompletedEvent {
+  id: string;
+  activity: Activity;
+  completedAt: string;
+  partner: UserProfile | null;
 }
 
 // ------------------------------------------------------------------

@@ -143,6 +143,7 @@ export default function UserProfileScreen() {
           targetUserName={user.profile?.displayName ?? "this user"}
           activityId={primaryActivity.activityId}
           activityName={primaryActivity.activity.name}
+          activityPhotoUrl={primaryActivity.activity.iconUrl}
           slots={primarySlots}
         />
       )}

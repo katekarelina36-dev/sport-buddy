@@ -76,3 +76,11 @@ export async function uploadPhoto(localUri: string, path: string = "/profile/me/
 }
 
 export const API_BASE_URL = API_URL;
+
+// Sport/community photos stored via the media pipeline come back as
+// relative "/media/..." paths; this resolves them to a full URL the same
+// way Avatar.tsx does, so any component can use a server-stored photo.
+export function resolveMediaUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  return url.startsWith("http") ? url : `${API_BASE_URL}${url}`;
+}

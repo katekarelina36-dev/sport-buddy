@@ -1,18 +1,21 @@
 import { useCallback, useState } from "react";
-import { View, Text, FlatList, TextInput, Pressable, StyleSheet } from "react-native";
+import { View, Text, FlatList, TextInput, Pressable, ImageBackground, StyleSheet } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { api } from "../../src/api/client";
-import { ActivityIcon } from "../../src/components/icons/ActivityIcon";
+import { LinearGradient } from "expo-linear-gradient";
+import { api, resolveMediaUrl } from "../../src/api/client";
 import { Toast } from "../../src/components/Toast";
 import { useAuth } from "../../src/hooks/useAuth";
-import { colors, radii, spacing, shadow, typography } from "../../src/theme";
+import { colors, spacing, typography } from "../../src/theme";
 import type { CommunitySummary } from "../../src/api/types";
 
 // Communities — full read-write feature (F15 was a read-only stub). List of
 // all communities, client-side filtered by name as the user types; a fixed
 // bottom "Create Community" bar is locked until 3 completed Events (Round 8,
 // Bug 1 — previously a floating button awkwardly mid-screen).
+// UI Redesign Final, section 2: each row is a full-bleed image card (the
+// community's own photo, or its sport's stock photo as a fallback) with a
+// bottom-up gradient wash and text on top, instead of a plain white row.
 export default function CommunitiesListScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -57,23 +60,24 @@ export default function CommunitiesListScreen() {
       <FlatList
         data={filtered}
         keyExtractor={(c) => c.id}
-        contentContainerStyle={{ padding: spacing.lg, gap: spacing.sm, paddingBottom: 80 }}
+        contentContainerStyle={{ paddingTop: spacing.md, paddingBottom: 80 }}
         ListEmptyComponent={<Text style={styles.empty}>No communities yet — be the first to create one.</Text>}
-        renderItem={({ item }) => (
-          <Pressable style={styles.card} onPress={() => router.push(`/communities/${item.id}`)}>
-            <View style={styles.cardPhoto}>
-              <ActivityIcon name={item.activity.name} size={24} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.cardName}>{item.name}</Text>
-              <View style={styles.sportBadge}>
-                <Text style={styles.sportBadgeText}>{item.activity.name}</Text>
-              </View>
-              <Text style={styles.memberCount}>{item.memberCount} members</Text>
-            </View>
-            <Text style={styles.chevron}>›</Text>
-          </Pressable>
-        )}
+        renderItem={({ item }) => {
+          const uri = resolveMediaUrl(item.photoUrl ?? item.activity.iconUrl);
+          return (
+            <Pressable style={styles.card} onPress={() => router.push(`/communities/${item.id}`)}>
+              {uri ? (
+                <ImageBackground source={{ uri }} style={styles.cardImage} resizeMode="cover">
+                  <CardOverlay item={item} />
+                </ImageBackground>
+              ) : (
+                <LinearGradient colors={[colors.coral, colors.sageDark]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.cardImage}>
+                  <CardOverlay item={item} />
+                </LinearGradient>
+              )}
+            </Pressable>
+          );
+        }}
       />
 
       <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 12 }]}>
@@ -84,6 +88,27 @@ export default function CommunitiesListScreen() {
 
       <Toast message={toastMessage} onHide={() => setToastMessage(null)} />
     </View>
+  );
+}
+
+function CardOverlay({ item }: { item: CommunitySummary }) {
+  return (
+    <>
+      <LinearGradient
+        colors={["transparent", "rgba(0,0,0,0.15)", "rgba(0,0,0,0.65)"]}
+        locations={[0, 0.4, 1]}
+        style={StyleSheet.absoluteFill}
+      />
+      <View style={styles.sportPill}>
+        <Text style={styles.sportPillLabel}>{item.activity.name}</Text>
+      </View>
+      <View style={styles.cardTextWrap}>
+        <Text style={styles.cardName} numberOfLines={2}>
+          {item.name}
+        </Text>
+        <Text style={styles.memberCount}>{item.memberCount} members</Text>
+      </View>
+    </>
   );
 }
 
@@ -105,13 +130,23 @@ const styles = StyleSheet.create({
   },
   searchIcon: { fontSize: 14, marginRight: spacing.xs },
   searchInput: { flex: 1, fontFamily: typography.fontFamilyRegular, fontSize: 14, color: colors.charcoal },
-  card: { flexDirection: "row", alignItems: "center", backgroundColor: colors.white, borderRadius: radii.sm, padding: spacing.md, ...shadow },
-  cardPhoto: { width: 56, height: 56, borderRadius: 12, backgroundColor: "#F1F5F9", alignItems: "center", justifyContent: "center", marginRight: spacing.md },
-  cardName: { fontFamily: typography.fontFamilyBold, fontSize: 16, color: colors.charcoal },
-  sportBadge: { backgroundColor: colors.coral, alignSelf: "flex-start", height: 22, paddingHorizontal: 8, borderRadius: 11, justifyContent: "center", marginTop: 4 },
-  sportBadgeText: { fontFamily: typography.fontFamily, fontSize: 12, color: colors.white },
-  memberCount: { fontFamily: typography.fontFamilyRegular, fontSize: 13, color: colors.muted, marginTop: 4 },
-  chevron: { fontSize: 20, color: "#94A3B8", marginLeft: spacing.sm },
+  card: { height: 160, borderRadius: 16, overflow: "hidden", marginBottom: spacing.md, marginHorizontal: spacing.md },
+  cardImage: { flex: 1, justifyContent: "flex-end" },
+  sportPill: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    height: 24,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    backgroundColor: colors.white,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sportPillLabel: { fontFamily: typography.fontFamilyBold, fontSize: 12, color: colors.coral },
+  cardTextWrap: { padding: 14 },
+  cardName: { fontFamily: typography.fontFamilyBold, fontSize: 17, color: colors.textOnDark },
+  memberCount: { fontFamily: typography.fontFamilyRegular, fontSize: 12, color: "rgba(248,250,252,0.85)", marginTop: 2 },
   empty: { fontFamily: typography.fontFamilyRegular, color: colors.muted, textAlign: "center", marginTop: spacing.xl },
   bottomBar: {
     position: "absolute",
@@ -128,5 +163,5 @@ const styles = StyleSheet.create({
   createButtonActive: { backgroundColor: colors.coral },
   createButtonLocked: { backgroundColor: "#E2E8F0" },
   createButtonLabel: { fontFamily: typography.fontFamilyBold, fontSize: 15, color: colors.white },
-  createButtonLabelLocked: { color: "#94A3B8" },
+  createButtonLabelLocked: { color: colors.textMuted },
 });

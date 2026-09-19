@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Image, Modal, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Badge } from "../../src/components/Badge";
 import { Avatar } from "../../src/components/Avatar";
 import { ActivityIcon } from "../../src/components/icons/ActivityIcon";
 import { DAY_ORDER } from "../../src/components/SportAvailabilityCard";
+import { resolveMediaUrl } from "../../src/api/client";
 import { colors, spacing, typography, radii, shadow } from "../../src/theme";
 import { useAuth } from "../../src/hooks/useAuth";
 import { usePendingRequestsCount } from "../../src/hooks/usePendingRequestsCount";
@@ -57,9 +57,10 @@ export default function ProfileScreen() {
         </Pressable>
         <Text style={styles.name}>{profile.profile?.displayName}</Text>
         {Boolean(ageCity) && <Text style={styles.subtitle}>{ageCity}</Text>}
-        <View style={styles.statPill}>
+        <Pressable style={styles.statPill} onPress={() => router.push("/profile/completed-events")}>
           <Text style={styles.statPillText}>{profile.profile?.completedTrainingsCount ?? 0} completed events</Text>
-        </View>
+          <Text style={styles.statPillChevron}>›</Text>
+        </Pressable>
       </View>
 
       <Pressable style={styles.requestsRow} onPress={() => router.push("/requests")}>
@@ -98,12 +99,15 @@ export default function ProfileScreen() {
                 </Pressable>
               </View>
             ) : (
-              <View style={{ gap: 10 }}>
-                {profile.activities.map((a) => {
+              <View>
+                {profile.activities.map((a, i) => {
                   const availability = formatAvailability(a.activityId);
+                  const odd = i % 2 === 0;
                   return (
-                    <View key={a.activityId} style={styles.sportRow}>
-                      <ActivityIcon name={a.activity.name} size={24} />
+                    <View key={a.activityId} style={[styles.sportRow, odd ? styles.rowTintPrimary : styles.rowTintSecondary]}>
+                      <View style={styles.sportIconBadge}>
+                        <ActivityIcon name={a.activity.name} size={18} />
+                      </View>
                       <View style={styles.sportRowCenter}>
                         <Text style={styles.sportRowName}>{a.activity.name}</Text>
                         {Boolean(availability) && (
@@ -112,7 +116,9 @@ export default function ProfileScreen() {
                           </Text>
                         )}
                       </View>
-                      <Badge label={a.level} tone="neutral" />
+                      <View style={styles.levelBadge}>
+                        <Text style={styles.levelBadgeLabel}>{a.level}</Text>
+                      </View>
                     </View>
                   );
                 })}
@@ -129,13 +135,39 @@ export default function ProfileScreen() {
             </Pressable>
           </View>
         ) : (
-          <View style={{ gap: spacing.sm }}>
-            {profile.communityMembers.map((m) => (
-              <Pressable key={m.community.id} style={styles.communityRow} onPress={() => router.push(`/communities/${m.community.id}`)}>
-                <Text style={styles.communityName}>{m.community.name}</Text>
-                {m.role !== "member" && <Badge label={m.role === "organiser" ? "Organiser" : "Assistant"} />}
-              </Pressable>
-            ))}
+          <View>
+            {profile.communityMembers.map((m, i) => {
+              const odd = i % 2 === 0;
+              const photoUri = resolveMediaUrl(m.community.photoUrl ?? m.community.activity?.iconUrl);
+              return (
+                <Pressable
+                  key={m.community.id}
+                  style={[styles.communityRow, odd ? styles.rowTintPrimary : styles.rowTintSecondary]}
+                  onPress={() => router.push(`/communities/${m.community.id}`)}
+                >
+                  {photoUri ? (
+                    <Image source={{ uri: photoUri }} style={styles.communityPhoto} />
+                  ) : (
+                    <View style={[styles.communityPhoto, styles.communityPhotoFallback]}>
+                      <ActivityIcon name={m.community.activity?.name ?? ""} size={20} />
+                    </View>
+                  )}
+                  <View style={styles.sportRowCenter}>
+                    <Text style={styles.sportRowName}>{m.community.name}</Text>
+                    <Text style={styles.sportRowAvailability}>
+                      {[m.community.activity?.name, m.community.memberCount != null ? `${m.community.memberCount} members` : null]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </Text>
+                  </View>
+                  {m.role !== "member" && (
+                    <View style={styles.organiserBadge}>
+                      <Text style={styles.organiserBadgeLabel}>{m.role === "organiser" ? "Organiser" : "Assistant"}</Text>
+                    </View>
+                  )}
+                </Pressable>
+              );
+            })}
           </View>
         )}
       </ScrollView>
@@ -181,8 +213,9 @@ const styles = StyleSheet.create({
   photoEditIcon: { fontSize: 12, color: colors.white },
   name: { fontFamily: typography.fontFamilyBold, fontSize: 20, color: colors.charcoal, marginTop: spacing.sm },
   subtitle: { fontFamily: typography.fontFamilyRegular, fontSize: 14, color: colors.muted, marginTop: 2 },
-  statPill: { backgroundColor: colors.sageLight, height: 28, paddingHorizontal: 14, borderRadius: 14, justifyContent: "center", marginTop: spacing.sm },
+  statPill: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.sageLight, height: 28, paddingHorizontal: 14, borderRadius: 14, marginTop: spacing.sm },
   statPillText: { fontFamily: typography.fontFamily, fontSize: 13, color: colors.sageDark },
+  statPillChevron: { fontSize: 14, color: colors.sageDark },
   requestsRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -205,28 +238,33 @@ const styles = StyleSheet.create({
   tabActive: { borderBottomColor: colors.coral },
   tabLabel: { fontFamily: typography.fontFamilyRegular, fontSize: 14, color: colors.muted },
   tabLabelActive: { fontFamily: typography.fontFamilyBold, color: colors.coral },
-  tabContent: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: 96, flexGrow: 1 },
-  tabHeaderRow: { flexDirection: "row", justifyContent: "flex-end", marginBottom: spacing.md },
+  tabContent: { paddingTop: spacing.md, paddingBottom: 96, flexGrow: 1 },
+  tabHeaderRow: { flexDirection: "row", justifyContent: "flex-end", marginBottom: spacing.md, paddingHorizontal: spacing.lg },
   editPill: { height: 32, paddingHorizontal: 14, borderRadius: 16, borderWidth: 1.5, borderColor: colors.coral, backgroundColor: colors.white, alignItems: "center", justifyContent: "center" },
   editPillLabel: { fontFamily: typography.fontFamilyBold, fontSize: 13, color: colors.coral },
-  emptyState: { alignItems: "center", paddingVertical: spacing.xl, gap: spacing.sm },
+  emptyState: { alignItems: "center", paddingVertical: spacing.xl, gap: spacing.sm, paddingHorizontal: spacing.lg },
   emptyText: { fontFamily: typography.fontFamilyRegular, fontSize: 14, color: colors.muted, textAlign: "center" },
   emptyCta: { fontFamily: typography.fontFamilyBold, fontSize: 14, color: colors.coral },
+  // UI Redesign Final, section 3: full-width alternating-tint rows, no card
+  // borders — replaces the earlier bordered white card per sport.
+  rowTintPrimary: { backgroundColor: "rgba(0, 49, 97, 0.05)" },
+  rowTintSecondary: { backgroundColor: "rgba(0, 106, 103, 0.05)" },
   sportRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
-    minHeight: 64,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.white,
+    height: 64,
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSubtle,
   },
+  sportIconBadge: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.white, alignItems: "center", justifyContent: "center" },
   sportRowCenter: { flex: 1 },
   sportRowName: { fontFamily: typography.fontFamilyBold, fontSize: 15, color: colors.charcoal },
   sportRowAvailability: { fontFamily: typography.fontFamilyRegular, fontSize: 13, color: colors.muted, marginTop: 2 },
+  levelBadge: { backgroundColor: colors.secondaryTint2, height: 22, paddingHorizontal: 10, borderRadius: 11, justifyContent: "center" },
+  levelBadgeLabel: { fontFamily: typography.fontFamilyRegular, fontSize: 12, color: colors.sageDark },
+  // UI Redesign Final, section 4: same full-width list style as Preferred Activities.
   communitiesEmptyCard: {
     backgroundColor: colors.white,
     borderRadius: 16,
@@ -234,6 +272,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: 24,
     alignItems: "center",
+    marginHorizontal: spacing.lg,
     ...shadow,
   },
   communitiesEmptyIcon: { fontSize: 40, color: colors.coral },
@@ -244,15 +283,15 @@ const styles = StyleSheet.create({
   communityRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    height: 52,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.white,
-    borderRadius: radii.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
+    height: 72,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSubtle,
   },
-  communityName: { fontFamily: typography.fontFamilyRegular, fontSize: 15, color: colors.charcoal },
+  communityPhoto: { width: 44, height: 44, borderRadius: 10, marginRight: 14 },
+  communityPhotoFallback: { backgroundColor: colors.white, alignItems: "center", justifyContent: "center" },
+  organiserBadge: { backgroundColor: colors.primaryTint2, height: 22, paddingHorizontal: 10, borderRadius: 11, justifyContent: "center" },
+  organiserBadgeLabel: { fontFamily: typography.fontFamilyRegular, fontSize: 11, color: colors.coral },
   accountFab: {
     position: "absolute",
     right: 16,
@@ -284,5 +323,5 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
   },
   accountMenuItem: { height: 44, paddingHorizontal: 16, justifyContent: "center" },
-  accountMenuItemLabel: { fontFamily: typography.fontFamilyRegular, fontSize: 15, color: colors.error },
+  accountMenuItemLabel: { fontFamily: typography.fontFamilyBold, fontSize: 15, color: colors.coral },
 });
