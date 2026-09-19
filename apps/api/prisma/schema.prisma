@@ -267,6 +267,12 @@ model Message {
   type      MessageType @default(text)
   createdAt DateTime    @default(now())
 
+  // Set only on the F13 challenge-card system message, linking it back to the
+  // Event it was auto-sent for — lets the client mirror the card's color to
+  // that Event's completion status (F14) instead of guessing from message order.
+  trainingId String?
+  training   TrainingSession? @relation(fields: [trainingId], references: [id])
+
   @@index([chatId, createdAt])
 }
 
@@ -302,6 +308,7 @@ model TrainingSession {
   reasonNoB         String?
 
   challenge TrainingChallenge?
+  messages  Message[]
 
   @@index([chatId])
 }

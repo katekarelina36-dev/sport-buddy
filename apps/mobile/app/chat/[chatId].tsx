@@ -112,7 +112,7 @@ export default function ChatScreen() {
         data={messages}
         keyExtractor={(m) => m.id}
         contentContainerStyle={{ padding: spacing.md, gap: spacing.sm }}
-        renderItem={({ item }) => <MessageBubble message={item} mine={item.senderId === profile?.id} />}
+        renderItem={({ item }) => <MessageBubble message={item} mine={item.senderId === profile?.id} trainings={trainings} />}
       />
 
       {chat?.isClosed ? (
@@ -156,11 +156,15 @@ export default function ChatScreen() {
   );
 }
 
-function MessageBubble({ message, mine }: { message: Message; mine: boolean }) {
+function MessageBubble({ message, mine, trainings }: { message: Message; mine: boolean; trainings: TrainingSession[] }) {
   if (message.type === "system" && message.body.startsWith("Challenge:")) {
+    const training = trainings.find((t) => t.id === message.trainingId);
+    const completed = training?.status === "completed";
     return (
-      <View style={styles.challengeCard}>
-        <Text style={styles.challengeLabel}>🏆 Challenge</Text>
+      <View style={[styles.challengeCard, completed && styles.challengeCardCompleted]}>
+        <Text style={[styles.challengeLabel, completed && styles.challengeLabelCompleted]}>
+          {completed ? "✅ Challenge completed" : "🏆 Challenge"}
+        </Text>
         <Text style={styles.challengeBody}>{message.body.replace("Challenge: ", "")}</Text>
       </View>
     );
@@ -229,7 +233,9 @@ const styles = StyleSheet.create({
   bubbleText: { fontFamily: typography.fontFamilyRegular, color: colors.charcoal },
   bubbleTextMine: { fontFamily: typography.fontFamilyRegular, color: colors.white },
   challengeCard: { borderWidth: 1.5, borderColor: colors.coral, borderRadius: radii.sm, padding: spacing.sm, backgroundColor: colors.white, alignSelf: "center" },
+  challengeCardCompleted: { borderColor: colors.sageDark, backgroundColor: colors.sageLight },
   challengeLabel: { fontFamily: typography.fontFamily, color: colors.coral, marginBottom: spacing.xs },
+  challengeLabelCompleted: { color: colors.sageDark },
   challengeBody: { fontFamily: typography.fontFamilyRegular, color: colors.charcoal },
   composerRow: { flexDirection: "row", gap: spacing.sm, padding: spacing.md, alignItems: "center" },
   input: { flex: 1, backgroundColor: colors.white, borderRadius: radii.sm, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md, minHeight: 44 },

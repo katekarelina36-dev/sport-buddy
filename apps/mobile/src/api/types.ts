@@ -93,6 +93,8 @@ export interface Message {
   body: string;
   type: "text" | "system" | "template";
   createdAt: string;
+  // Only set on the F13 challenge-card message — the Event it was sent for.
+  trainingId?: string | null;
 }
 
 export interface TrainingSession {

@@ -55,7 +55,7 @@ trainingRouter.post("/", async (req: AuthedRequest, res) => {
     const challenge = pool[Math.floor(Math.random() * pool.length)];
     await prisma.trainingChallenge.create({ data: { trainingId: training.id, challengeId: challenge.id } });
     await prisma.message.create({
-      data: { chatId, type: "system", body: `Challenge: ${challenge.content}` },
+      data: { chatId, type: "system", body: `Challenge: ${challenge.content}`, trainingId: training.id },
     });
   }
 
