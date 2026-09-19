@@ -1,14 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { View, Text, FlatList, TextInput, StyleSheet, Pressable, Alert, Modal, ScrollView } from "react-native";
+import { View, Text, FlatList, TextInput, StyleSheet, Pressable, Alert, Modal } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import type { Socket } from "socket.io-client";
 import { api } from "../../src/api/client";
 import { getChatSocket } from "../../src/api/socket";
 import { Button } from "../../src/components/Button";
-import { AvailabilityPicker } from "../../src/components/AvailabilityPicker";
+import { ScheduleEventSheet, type ScheduleEventValues } from "../../src/components/ScheduleEventSheet";
+import { Toast } from "../../src/components/Toast";
+import type { DaySlot } from "../../src/components/WeeklyAvailabilityWidget";
 import { colors, spacing, typography, radii } from "../../src/theme";
 import { useAuth } from "../../src/hooks/useAuth";
-import type { Message, ChatSummary, TrainingSession, AvailabilitySlot } from "../../src/api/types";
+import type { Message, ChatSummary, TrainingSession, PublicUser } from "../../src/api/types";
+
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 // F11 (real-time messaging + auto starters) + F12 (in-chat scheduler, sticky
 // banner, calendar sync status) + F13 (challenge card render, delivered as a
@@ -22,17 +26,32 @@ export default function ChatScreen() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [schedulerOpen, setSchedulerOpen] = useState(false);
-  const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
+  const [editingTraining, setEditingTraining] = useState<TrainingSession | null>(null);
+  const [scheduling, setScheduling] = useState(false);
+  const [partnerSlots, setPartnerSlots] = useState<DaySlot[]>([]);
   const [completingFirst, setCompletingFirst] = useState<TrainingSession | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
 
   const load = useCallback(async () => {
-    const res = await api.get<{ chat: any; messages: Message[] }>(`/chats/${chatId}`);
+    const res = await api.get<{ chat: ChatSummary & { trainingSessions: TrainingSession[] }; messages: Message[] }>(`/chats/${chatId}`);
     setChat(res.chat);
     setTrainings(res.chat.trainingSessions ?? []);
     setMessages(res.messages);
     api.post(`/chats/${chatId}/read`);
-  }, [chatId]);
+
+    // Bug fix batch: the Schedule Event sheet shows the OTHER participant's
+    // availability for this chat's sport, per section 4 of the spec.
+    const otherUserId = res.chat.userA.id === profile?.id ? res.chat.userB.id : res.chat.userA.id;
+    if (otherUserId) {
+      const other = await api.get<PublicUser>(`/users/${otherUserId}`);
+      setPartnerSlots(
+        other.availability
+          .filter((s) => s.dayOfWeek !== undefined && s.activityId === res.chat.activity.id)
+          .map((s) => ({ dayOfWeek: s.dayOfWeek!, startTime: s.startTime, endTime: s.endTime }))
+      );
+    }
+  }, [chatId, profile?.id]);
 
   useEffect(() => {
     load();
@@ -66,20 +85,48 @@ export default function ChatScreen() {
     setInput("");
   }
 
-  async function scheduleEvent() {
-    const firstSlot = slots[0];
-    if (!firstSlot || !chat) {
-      Alert.alert("Pick a time first");
-      return;
-    }
-    const scheduledAt = nextDateForDayAndTime(firstSlot.dayOfWeek ?? 0, firstSlot.startTime);
-    await api.post("/training", { chatId, activityId: chat.activity.id, scheduledAt: scheduledAt.toISOString() });
-    setSchedulerOpen(false);
-    load();
-  }
-
   const activeTraining = trainings.find((t) => t.status === "scheduled");
   const isFirstEverTraining = trainings.length <= 1;
+
+  function openScheduler() {
+    setEditingTraining(null);
+    setSchedulerOpen(true);
+  }
+
+  function openEditScheduler(training: TrainingSession) {
+    setEditingTraining(training);
+    setSchedulerOpen(true);
+  }
+
+  async function submitSchedule(values: ScheduleEventValues) {
+    if (!chat) return;
+    setScheduling(true);
+    const scheduledAt = new Date(values.date);
+    scheduledAt.setHours(values.time.getHours(), values.time.getMinutes(), 0, 0);
+    try {
+      if (editingTraining) {
+        await api.patch(`/training/${editingTraining.id}`, {
+          scheduledAt: scheduledAt.toISOString(),
+          locationText: values.locationText || undefined,
+        });
+      } else {
+        await api.post("/training", {
+          chatId,
+          activityId: chat.activity.id,
+          scheduledAt: scheduledAt.toISOString(),
+          locationText: values.locationText || undefined,
+        });
+      }
+      setSchedulerOpen(false);
+      setEditingTraining(null);
+      setToastMessage("Event scheduled! ✓");
+      await load();
+    } catch (err) {
+      Alert.alert("Couldn't schedule event", (err as Error).message);
+    } finally {
+      setScheduling(false);
+    }
+  }
 
   async function completeTapped(training: TrainingSession) {
     if (isFirstEverTraining) {
@@ -90,20 +137,39 @@ export default function ChatScreen() {
     }
   }
 
+  function formatBannerDate(scheduledAt: string): string {
+    const d = new Date(scheduledAt);
+    return `${DAY_NAMES[d.getDay()]} ${d.getDate()} ${d.toLocaleDateString([], { month: "short" })} · ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+  }
+
   return (
     <View style={styles.container}>
       {activeTraining && (
-        <View style={styles.banner}>
-          <Text style={styles.bannerText}>
-            {new Date(activeTraining.scheduledAt).toLocaleString()} {activeTraining.locationText ? `· ${activeTraining.locationText}` : ""}
-          </Text>
-          <View style={styles.bannerRow}>
-            <Text style={styles.syncStatus}>
-              {activeTraining.calendarSyncStatus === "synced" ? "📅 Synced" : activeTraining.calendarSyncStatus === "pending" ? "📅 Syncing…" : "📅 Sync failed"}
+        <Pressable style={styles.banner} onPress={() => openEditScheduler(activeTraining)}>
+          <View style={styles.bannerTopRow}>
+            <Text style={styles.bannerSport}>🏅 {chat?.activity.name}</Text>
+            <View style={styles.statusPill}>
+              <Text style={styles.statusPillText}>Scheduled</Text>
+            </View>
+          </View>
+          <View style={styles.bannerBottomRow}>
+            <Text style={styles.bannerMeta}>
+              {formatBannerDate(activeTraining.scheduledAt)}
+              {activeTraining.locationText ? `  📍 ${activeTraining.locationText}` : ""}
             </Text>
             <Pressable onPress={() => completeTapped(activeTraining)}>
               <Text style={styles.completeLink}>Complete</Text>
             </Pressable>
+          </View>
+        </Pressable>
+      )}
+      {!activeTraining && trainings.some((t) => t.status === "completed") && (
+        <View style={[styles.banner, styles.bannerCompleted]}>
+          <View style={styles.bannerTopRow}>
+            <Text style={styles.bannerSport}>🏅 {chat?.activity.name}</Text>
+            <View style={[styles.statusPill, styles.statusPillCompleted]}>
+              <Text style={styles.statusPillText}>Completed ✓</Text>
+            </View>
           </View>
         </View>
       )}
@@ -126,19 +192,24 @@ export default function ChatScreen() {
             <Button label="Send" onPress={send} />
           </View>
           <View style={{ padding: spacing.md, paddingTop: 0 }}>
-            <Button label="Schedule Event" variant="secondary" onPress={() => setSchedulerOpen(true)} />
+            <Button label="Schedule Event" variant="secondary" onPress={openScheduler} />
           </View>
         </>
       )}
 
-      <Modal visible={schedulerOpen} animationType="slide">
-        <ScrollView style={styles.modalScreen} contentContainerStyle={styles.modalContainer}>
-          <Text style={styles.modalTitle}>Schedule Event</Text>
-          <AvailabilityPicker value={slots} onChange={setSlots} />
-          <Button label="Confirm" onPress={scheduleEvent} />
-          <Button label="Cancel" variant="outline" onPress={() => setSchedulerOpen(false)} />
-        </ScrollView>
-      </Modal>
+      <ScheduleEventSheet
+        visible={schedulerOpen}
+        onClose={() => {
+          setSchedulerOpen(false);
+          setEditingTraining(null);
+        }}
+        onSubmit={submitSchedule}
+        submitting={scheduling}
+        partnerSlots={partnerSlots}
+        initial={editingTraining ? { scheduledAt: editingTraining.scheduledAt, locationText: editingTraining.locationText } : null}
+      />
+
+      <Toast message={toastMessage} onHide={() => setToastMessage(null)} />
 
       <Modal visible={Boolean(completingFirst)} animationType="slide" transparent>
         {completingFirst && (
@@ -205,24 +276,18 @@ function FirstCompletionForm({ onSubmit, onCancel }: { onSubmit: (a: { didHappen
   );
 }
 
-// Maps a day-of-week + "HH:mm" slot to the next real calendar date/time (UTC).
-function nextDateForDayAndTime(dayOfWeek: number, startTime: string): Date {
-  const [hours, minutes] = startTime.split(":").map(Number);
-  const now = new Date();
-  const result = new Date(now);
-  const diff = (dayOfWeek - now.getUTCDay() + 7) % 7 || 7;
-  result.setUTCDate(now.getUTCDate() + diff);
-  result.setUTCHours(hours, minutes, 0, 0);
-  return result;
-}
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.offWhite },
-  banner: { backgroundColor: colors.sageLight, padding: spacing.sm, gap: spacing.xs },
-  bannerText: { fontFamily: typography.fontFamily, color: colors.sageDark },
-  bannerRow: { flexDirection: "row", justifyContent: "space-between" },
-  syncStatus: { fontFamily: typography.fontFamilyRegular, fontSize: 12, color: colors.muted },
-  completeLink: { fontFamily: typography.fontFamily, color: colors.coral },
+  banner: { minHeight: 56, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.white, gap: spacing.xs, justifyContent: "center" },
+  bannerCompleted: { opacity: 0.9 },
+  bannerTopRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  bannerSport: { fontFamily: typography.fontFamilyBold, fontSize: 14, color: colors.charcoal },
+  bannerBottomRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  bannerMeta: { fontFamily: typography.fontFamilyRegular, fontSize: 13, color: colors.muted, flex: 1 },
+  statusPill: { backgroundColor: colors.sageLight, height: 22, paddingHorizontal: 8, borderRadius: 11, justifyContent: "center" },
+  statusPillCompleted: { backgroundColor: colors.sageLight },
+  statusPillText: { fontFamily: typography.fontFamily, fontSize: 12, color: colors.sageDark },
+  completeLink: { fontFamily: typography.fontFamily, fontSize: 13, color: colors.coral },
   bubble: { maxWidth: "80%", padding: spacing.sm, borderRadius: radii.sm },
   bubbleMine: { backgroundColor: colors.coral, alignSelf: "flex-end" },
   bubbleTheirs: { backgroundColor: colors.white, alignSelf: "flex-start" },
@@ -235,8 +300,6 @@ const styles = StyleSheet.create({
   input: { flex: 1, backgroundColor: colors.white, borderRadius: radii.sm, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md, minHeight: 44 },
   closedBanner: { padding: spacing.md, alignItems: "center" },
   closedText: { fontFamily: typography.fontFamilyRegular, color: colors.muted },
-  modalScreen: { flex: 1, backgroundColor: colors.offWhite },
-  modalContainer: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xl },
   modalTitle: { fontFamily: typography.fontFamilyBold, fontSize: 18, color: colors.charcoal },
   formOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
   formCard: { backgroundColor: colors.white, borderTopLeftRadius: radii.lg, borderTopRightRadius: radii.lg, padding: spacing.lg, gap: spacing.md },

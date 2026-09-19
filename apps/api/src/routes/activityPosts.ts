@@ -6,32 +6,14 @@ import { requireAuth, type AuthedRequest } from "../lib/auth.js";
 export const activityPostsRouter = Router();
 activityPostsRouter.use(requireAuth);
 
-const createPostSchema = z.object({
-  activityId: z.string(),
-  level: z.enum(["beginner", "intermediate", "advanced"]),
-  locationLat: z.number().optional(),
-  locationLng: z.number().optional(),
-  slots: z
-    .array(z.object({ date: z.string().datetime(), startTime: z.string(), endTime: z.string() }))
-    .min(1),
-});
-
-activityPostsRouter.post("/", async (req: AuthedRequest, res) => {
-  const parsed = createPostSchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.flatten() });
-    return;
-  }
-  const { slots, ...postFields } = parsed.data;
-  const post = await prisma.activityPost.create({
-    data: {
-      ...postFields,
-      authorId: req.userId!,
-      slots: { createMany: { data: slots.map((s) => ({ ...s, date: new Date(s.date), activityId: postFields.activityId })) } },
-    },
-    include: { slots: true },
-  });
-  res.status(201).json(post);
+// Bug fix batch: activity_posts are never manually created by the user
+// anymore — they're auto-generated/updated when availability is saved (see
+// routes/availability.ts). This lets the "how many partners" stepper
+// (SportAvailabilityCard) read back the caller's own current values.
+// Registered before "/:id" so "mine" isn't swallowed by that param route.
+activityPostsRouter.get("/mine", async (req: AuthedRequest, res) => {
+  const posts = await prisma.activityPost.findMany({ where: { authorId: req.userId! } });
+  res.json(posts);
 });
 
 // F3: feed of Activity Posts (not user profiles), filtered by activity type,

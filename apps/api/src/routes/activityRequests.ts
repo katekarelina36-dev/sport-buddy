@@ -90,6 +90,24 @@ activityRequestsRouter.post("/:id/approve", async (req: AuthedRequest, res) => {
     return;
   }
 
+  // Direct flow only (F3/F4): cap approvals at the recipient's own
+  // "how many partners" setting for this sport. Each approval still gets its
+  // own 1:1 chat with the recipient (a single shared group chat needs the
+  // chat_participants restructuring tracked separately for Communities).
+  if (request.targetUserId) {
+    const post = await prisma.activityPost.findUnique({
+      where: { authorId_activityId: { authorId: request.targetUserId, activityId: request.activityId } },
+    });
+    const maxParticipants = post?.maxParticipants ?? 1;
+    const approvedCount = await prisma.activityRequest.count({
+      where: { targetUserId: request.targetUserId, activityId: request.activityId, status: "approved" },
+    });
+    if (approvedCount >= maxParticipants) {
+      res.status(409).json({ error: "This activity is full" });
+      return;
+    }
+  }
+
   const [userAId, userBId] = [recipientId(request), request.requesterId].sort();
 
   const chat = await prisma.$transaction(async (tx) => {

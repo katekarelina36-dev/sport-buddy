@@ -78,6 +78,26 @@ trainingRouter.post("/", async (req: AuthedRequest, res) => {
   res.status(201).json(training);
 });
 
+const rescheduleSchema = z.object({
+  scheduledAt: z.string().datetime(),
+  locationText: z.string().optional(),
+});
+
+// Bug fix batch, section 5: tapping the chat's sticky banner re-opens the
+// Schedule Event sheet "in edit mode" for the currently-scheduled Event.
+trainingRouter.patch("/:id", async (req: AuthedRequest, res) => {
+  const parsed = rescheduleSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.flatten() });
+    return;
+  }
+  const training = await prisma.trainingSession.update({
+    where: { id: req.params.id },
+    data: { scheduledAt: new Date(parsed.data.scheduledAt), locationText: parsed.data.locationText },
+  });
+  res.json(training);
+});
+
 trainingRouter.post("/:id/cancel", async (req: AuthedRequest, res) => {
   await prisma.trainingSession.update({ where: { id: req.params.id }, data: { status: "cancelled" } });
   res.json({ ok: true });

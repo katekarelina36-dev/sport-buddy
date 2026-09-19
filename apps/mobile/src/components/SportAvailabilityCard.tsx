@@ -18,7 +18,11 @@ export interface SportSelection {
   activityId: string;
   level: SkillLevel;
   days: Record<number, DayAvailability>; // keyed by dayOfWeek (0-6)
+  maxParticipants: number; // "how many partners are you looking for?" (1-20)
 }
+
+const MIN_PARTICIPANTS = 1;
+const MAX_PARTICIPANTS = 20;
 
 interface Props {
   activityName: string;
@@ -26,13 +30,14 @@ interface Props {
   onSetLevel: (level: SkillLevel) => void;
   onToggleDay: (dayOfWeek: number) => void;
   onSetDayTime: (dayOfWeek: number, field: "startTime" | "endTime", value: string) => void;
+  onSetMaxParticipants: (value: number) => void;
   onRemove?: () => void;
 }
 
 // Shared "sport detail" card: level pills + day-of-week circles + a native
 // time picker per selected day. Used by F1 onboarding step 3 and the F5
 // "Preferred Activities" editor so both stay in sync.
-export function SportAvailabilityCard({ activityName, sport, onSetLevel, onToggleDay, onSetDayTime, onRemove }: Props) {
+export function SportAvailabilityCard({ activityName, sport, onSetLevel, onToggleDay, onSetDayTime, onSetMaxParticipants, onRemove }: Props) {
   return (
     <View style={styles.card}>
       <View style={styles.titleRow}>
@@ -78,6 +83,31 @@ export function SportAvailabilityCard({ activityName, sport, onSetLevel, onToggl
           onChange={(field, value) => onSetDayTime(dayOfWeek, field, value)}
         />
       ))}
+
+      <View style={styles.divider} />
+      <Text style={styles.label}>How many partners are you looking for?</Text>
+      <View style={styles.stepperRow}>
+        <Pressable
+          accessibilityLabel="Decrease"
+          style={styles.stepperButton}
+          disabled={sport.maxParticipants <= MIN_PARTICIPANTS}
+          onPress={() => onSetMaxParticipants(Math.max(MIN_PARTICIPANTS, sport.maxParticipants - 1))}
+        >
+          <Text style={styles.stepperIcon}>−</Text>
+        </Pressable>
+        <Text style={styles.stepperValue}>{sport.maxParticipants}</Text>
+        <Pressable
+          accessibilityLabel="Increase"
+          style={styles.stepperButton}
+          disabled={sport.maxParticipants >= MAX_PARTICIPANTS}
+          onPress={() => onSetMaxParticipants(Math.min(MAX_PARTICIPANTS, sport.maxParticipants + 1))}
+        >
+          <Text style={styles.stepperIcon}>+</Text>
+        </Pressable>
+      </View>
+      <Text style={styles.stepperHelper}>
+        {sport.maxParticipants === 1 ? "You'll be matched 1:1" : "A group chat will be created when partners are found"}
+      </Text>
     </View>
   );
 }
@@ -152,4 +182,10 @@ const styles = StyleSheet.create({
   timeField: { height: 36, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white, justifyContent: "center" },
   timeFieldText: { fontFamily: typography.fontFamilyRegular, fontSize: 13, color: colors.charcoal },
   arrow: { color: colors.muted },
+  divider: { height: 1, backgroundColor: colors.border, marginTop: spacing.md },
+  stepperRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 12, marginTop: spacing.sm },
+  stepperButton: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center", backgroundColor: colors.white },
+  stepperIcon: { fontSize: 20, color: colors.coral, fontFamily: typography.fontFamilyBold },
+  stepperValue: { minWidth: 48, fontSize: 18, fontFamily: typography.fontFamilyBold, color: colors.charcoal, textAlign: "center" },
+  stepperHelper: { fontFamily: typography.fontFamilyRegular, fontSize: 12, color: colors.muted, textAlign: "center", marginTop: spacing.xs },
 });

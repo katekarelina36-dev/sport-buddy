@@ -47,7 +47,6 @@ function RootNavigator() {
       <Stack.Screen name="onboarding" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="feed/[activityId]" options={{ title: "Explore" }} />
-      <Stack.Screen name="post/[postId]" options={{ title: "Activity" }} />
       <Stack.Screen name="user/[userId]" options={{ headerShown: false }} />
       <Stack.Screen name="chat/[chatId]" options={{ title: "Chat" }} />
       <Stack.Screen name="requests/index" options={{ title: "Requests" }} />

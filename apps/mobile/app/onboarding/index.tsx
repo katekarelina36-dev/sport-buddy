@@ -48,7 +48,7 @@ export default function OnboardingScreen() {
       if (next[activityId]) {
         delete next[activityId];
       } else {
-        next[activityId] = { activityId, level: "beginner", days: {} };
+        next[activityId] = { activityId, level: "beginner", days: {}, maxParticipants: 1 };
       }
       return next;
     });
@@ -76,6 +76,10 @@ export default function OnboardingScreen() {
       const sport = prev[activityId];
       return { ...prev, [activityId]: { ...sport, days: { ...sport.days, [dayOfWeek]: { ...sport.days[dayOfWeek], [field]: value } } } };
     });
+  }
+
+  function setSportMaxParticipants(activityId: string, value: number) {
+    setSports((prev) => ({ ...prev, [activityId]: { ...prev[activityId], maxParticipants: value } }));
   }
 
   async function pickPhoto() {
@@ -140,7 +144,7 @@ export default function OnboardingScreen() {
           recurring: true,
         }));
         if (slots.length > 0) {
-          await api.put(`/availability?activityId=${sport.activityId}`, slots);
+          await api.put(`/availability?activityId=${sport.activityId}&maxParticipants=${sport.maxParticipants}`, slots);
         }
       }
       await refresh();
@@ -233,6 +237,7 @@ export default function OnboardingScreen() {
                 onSetLevel={(level) => setSportLevel(sport.activityId, level)}
                 onToggleDay={(day) => toggleSportDay(sport.activityId, day)}
                 onSetDayTime={(day, field, value) => setSportDayTime(sport.activityId, day, field, value)}
+                onSetMaxParticipants={(value) => setSportMaxParticipants(sport.activityId, value)}
               />
             ))}
           </>

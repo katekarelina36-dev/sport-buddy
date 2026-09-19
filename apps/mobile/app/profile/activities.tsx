@@ -26,9 +26,14 @@ export default function PreferredActivitiesScreen() {
   // Availability is per-sport server-side; fetch each selected sport's slots
   // directly (GET /availability?activityId=) rather than relying on the
   // profile payload, which doesn't disambiguate per-sport rows for this view.
+  // "How many partners" (maxParticipants) lives on the auto-generated
+  // ActivityPost, read back via GET /activity-posts/mine.
   useEffect(() => {
     if (!profile) return;
     (async () => {
+      const myPosts = await api.get<{ activityId: string; maxParticipants: number }[]>("/activity-posts/mine");
+      const maxParticipantsByActivity = new Map(myPosts.map((p) => [p.activityId, p.maxParticipants]));
+
       const built: Record<string, SportSelection> = {};
       for (const ua of profile.activities) {
         const slots = await api.get<{ dayOfWeek?: number; startTime: string; endTime: string }[]>(
@@ -39,7 +44,12 @@ export default function PreferredActivitiesScreen() {
           if (slot.dayOfWeek === undefined) continue;
           days[slot.dayOfWeek] = { startTime: slot.startTime, endTime: slot.endTime };
         }
-        built[ua.activityId] = { activityId: ua.activityId, level: ua.level, days };
+        built[ua.activityId] = {
+          activityId: ua.activityId,
+          level: ua.level,
+          days,
+          maxParticipants: maxParticipantsByActivity.get(ua.activityId) ?? 1,
+        };
       }
       setSports(built);
       setInitialSports(built);
@@ -50,7 +60,7 @@ export default function PreferredActivitiesScreen() {
   const availableToAdd = activities.filter((a) => !sports[a.id]);
 
   function addSport(activityId: string) {
-    setSports((prev) => ({ ...prev, [activityId]: { activityId, level: "beginner", days: {} } }));
+    setSports((prev) => ({ ...prev, [activityId]: { activityId, level: "beginner", days: {}, maxParticipants: 1 } }));
     setPickerOpen(false);
   }
 
@@ -83,6 +93,10 @@ export default function PreferredActivitiesScreen() {
     });
   }
 
+  function setSportMaxParticipants(activityId: string, value: number) {
+    setSports((prev) => ({ ...prev, [activityId]: { ...prev[activityId], maxParticipants: value } }));
+  }
+
   async function save() {
     setSaving(true);
     try {
@@ -96,7 +110,7 @@ export default function PreferredActivitiesScreen() {
           endTime: time.endTime,
           recurring: true,
         }));
-        await api.put(`/availability?activityId=${sport.activityId}`, slots);
+        await api.put(`/availability?activityId=${sport.activityId}&maxParticipants=${sport.maxParticipants}`, slots);
       }
       await refresh();
       Alert.alert("Profile updated");
@@ -131,6 +145,7 @@ export default function PreferredActivitiesScreen() {
             onSetLevel={(level) => setSportLevel(sport.activityId, level)}
             onToggleDay={(day) => toggleSportDay(sport.activityId, day)}
             onSetDayTime={(day, field, value) => setSportDayTime(sport.activityId, day, field, value)}
+            onSetMaxParticipants={(value) => setSportMaxParticipants(sport.activityId, value)}
             onRemove={() => removeSport(sport.activityId)}
           />
         ))}

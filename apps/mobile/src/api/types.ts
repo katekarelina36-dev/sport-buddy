@@ -36,6 +36,7 @@ export interface Activity {
 
 export interface AvailabilitySlot {
   id?: string;
+  activityId?: string | null;
   dayOfWeek?: number;
   date?: string;
   startTime: string;
