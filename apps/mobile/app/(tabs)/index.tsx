@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { View, Text, FlatList, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { api } from "../../src/api/client";
+import { ActivityIcon } from "../../src/components/icons/ActivityIcon";
 import { colors, radii, spacing, shadow, typography, minTouchTarget, topInset } from "../../src/theme";
 import type { Activity } from "../../src/api/types";
 
@@ -26,7 +27,7 @@ export default function HomeScreen() {
         contentContainerStyle={{ gap: spacing.md, paddingBottom: spacing.xl }}
         renderItem={({ item }) => (
           <Pressable style={styles.card} onPress={() => router.push(`/feed/${item.id}`)}>
-            <Text style={styles.icon}>🏅</Text>
+            <ActivityIcon name={item.name} size={40} />
             <Text style={styles.label}>{item.name}</Text>
           </Pressable>
         )}
@@ -49,6 +50,5 @@ const styles = StyleSheet.create({
     minWidth: minTouchTarget,
     ...shadow,
   },
-  icon: { fontSize: 28 },
   label: { fontFamily: typography.fontFamily, color: colors.charcoal },
 });
