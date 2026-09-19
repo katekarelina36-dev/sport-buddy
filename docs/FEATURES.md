@@ -55,3 +55,20 @@ Current state (`lib/media.ts`, `routes/profile.ts` POST `/me/photo`) is a dev-on
 - **Local disk storage** — fine for this dev scaffold; production must move to the S3/GCS `MediaDriver` already stubbed in `lib/media.ts`, with private-by-default bucket ACLs.
 
 None of this blocks continued MVP testing with fake/throwaway photos; it matters before any real user's photo touches this system.
+
+## Round 2 (F1/F3/F4/F7 spec) — implemented
+
+The user uploaded three new spec docs and chose to implement the "Round 2" doc (F1/F3/F4/F7) first, explicitly deferring the other two (see below). Changes:
+
+- **Sports catalog** expanded from 10 to 25 activities (`apps/api/prisma/seed.ts`), with slug-based IDs so multi-word names ("Table Tennis", "Gym / Fitness", "Martial Arts", "Ice Skating") get stable, readable IDs.
+- **`SkillLevel`** gained a 4th level, `pro`, across the schema, the API route validation, and every mobile UI list (`FilterSheet`, `SportAvailabilityCard`).
+- **Demo data**: 10 realistic seed profiles (name/age/sport/level), each with a Warsaw city, computed date of birth, an avatar photo, and 2–4 randomized weekly availability days (07:00–21:00 range) per sport — so the Explore feed is populated immediately on first launch, per spec.
+- **F1 onboarding / F5 "Preferred Activities"**: the sport-level + weekly-availability picker used in onboarding step 3 was extracted into a shared component, `src/components/SportAvailabilityCard.tsx`, and F5 got its own dedicated editor screen (`app/profile/activities.tsx`, reachable via an "Edit" link on My Profile) instead of being folded into the general profile-edit screen. `app/profile/edit.tsx` now only handles photo/name/city/bio.
+- **Home screen (F2)** retitled "Explore Activities" with a 3-column square-card sport grid (was a 2-column list).
+- **F3 feed filter**: the distance slider was removed (not spec'd for Round 2); filters are now level + day only. The feed's "Send Activity Request" no longer fires instantly — it opens a bottom sheet (see F7 below).
+- **F4 profile detail**: availability is now shown only for the sport the viewer navigated through (`?activityId=` query param, the spec's "context rule"), rendered as a new tappable weekly-calendar widget (`src/components/WeeklyAvailabilityWidget.tsx`, `variant="view"`) instead of a plain list. Other sports the user plays are listed under "Also Plays" (level badge only, no availability).
+- **F7 Send Activity Request**: changed from a single tap to a required flow — a new bottom sheet (`src/components/SendActivityRequestSheet.tsx`) makes the requester pick one specific day+time slot from the target's per-sport availability (via `WeeklyAvailabilityWidget`, `variant="select"`) before "Send Request" is enabled. `ActivityRequest` gained `selectedDayOfWeek`/`selectedStartTime`/`selectedEndTime` so the recipient sees the exact slot requested in F8 (F8's UI itself doesn't yet surface these fields — see gap below).
+
+**Known gaps in this batch:**
+- F8 (pending requests screen) doesn't yet display the `selectedDayOfWeek/StartTime/EndTime` captured by F7 — the data is stored and returned by the API, but the requests-list UI hasn't been updated to show it.
+- **Deferred by explicit user choice**, not started: `BugFixes_ScheduleEvent_ActivityPost.md` (remove FAB, auto-generate Activity Posts from availability, "how many partners" stepper, Schedule Event bottom-sheet fixes, chat sticky banner updates) and `F_Community_GroupActivity.md` (Group Activity type selector, full Communities tab, group chat restructuring, community creation flow, 3-events unlock modal).

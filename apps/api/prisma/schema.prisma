@@ -17,6 +17,7 @@ enum SkillLevel {
   beginner
   intermediate
   advanced
+  pro
 }
 
 enum UserRole {
@@ -248,6 +249,11 @@ model ActivityRequest {
   // their per-sport availability, with no Activity Post involved.
   targetUserId String?
   targetUser   User?                 @relation("RequestTarget", fields: [targetUserId], references: [id])
+  // F7 (Round 2): the specific day+time slot the requester picked from the
+  // target's per-sport availability, shown back to the recipient in F8.
+  selectedDayOfWeek Int?
+  selectedStartTime String?
+  selectedEndTime   String?
   activityId  String
   activity    Activity               @relation(fields: [activityId], references: [id])
   status      ActivityRequestStatus  @default(pending)

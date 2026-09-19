@@ -4,33 +4,20 @@ import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Button } from "../../src/components/Button";
+import { SportAvailabilityCard, type SportSelection } from "../../src/components/SportAvailabilityCard";
 import { colors, spacing, typography, radii } from "../../src/theme";
 import { api, uploadPhoto } from "../../src/api/client";
 import { useAuth } from "../../src/hooks/useAuth";
 import { calculateAge, defaultDateOfBirth, MIN_ONBOARDING_AGE } from "../../src/utils/age";
-import type { Activity, SkillLevel } from "../../src/api/types";
+import type { Activity } from "../../src/api/types";
 
 const STEPS = ["name_city", "dob", "sports", "photo"] as const;
-const DAY_LABELS = ["M", "T", "W", "T", "F", "S", "S"]; // Mon..Sun, per spec
-const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]; // Mon(1)..Sun(0), matching Date.getDay()
-const LEVELS: SkillLevel[] = ["beginner", "intermediate", "advanced"];
-
-interface DayAvailability {
-  startTime: string; // "HH:mm"
-  endTime: string;
-}
-
-interface SportSelection {
-  activityId: string;
-  level: SkillLevel;
-  days: Record<number, DayAvailability>; // keyed by dayOfWeek (0-6)
-}
 
 // F1: 4-step onboarding wizard (Name+City, Date of Birth, Sports w/ per-sport
 // level+availability, Photo). Mandatory fields gate reaching Home; progress
 // bar reflects step (25/50/75/100%). Per spec, sport detail expands inline
 // below its card — implemented here as a full-width block beneath the grid
-// per selected sport (keeps the grid a clean 2-column layout on small screens
+// per selected sport (keeps the grid a clean 3-column layout on small screens
 // instead of each card expanding in place, which would misalign siblings).
 export default function OnboardingScreen() {
   const router = useRouter();
@@ -67,7 +54,7 @@ export default function OnboardingScreen() {
     });
   }
 
-  function setSportLevel(activityId: string, level: SkillLevel) {
+  function setSportLevel(activityId: string, level: SportSelection["level"]) {
     setSports((prev) => ({ ...prev, [activityId]: { ...prev[activityId], level } }));
   }
 
@@ -230,59 +217,24 @@ export default function OnboardingScreen() {
                 return (
                   <Pressable key={a.id} style={[styles.sportCard, selected && styles.sportCardSelected]} onPress={() => toggleSport(a.id)}>
                     <Text style={styles.sportIcon}>🏅</Text>
-                    <Text style={styles.sportName}>{a.name}</Text>
+                    <Text style={styles.sportName} numberOfLines={2}>
+                      {a.name}
+                    </Text>
                   </Pressable>
                 );
               })}
             </View>
 
-            {Object.values(sports).map((sport) => {
-              const activity = activities.find((a) => a.id === sport.activityId);
-              return (
-                <View key={sport.activityId} style={styles.sportDetailCard}>
-                  <Text style={styles.sportDetailTitle}>{activity?.name}</Text>
-
-                  <Text style={styles.detailLabel}>Your level</Text>
-                  <View style={styles.pillRow}>
-                    {LEVELS.map((level) => (
-                      <Pressable
-                        key={level}
-                        style={[styles.levelPill, sport.level === level && styles.levelPillSelected]}
-                        onPress={() => setSportLevel(sport.activityId, level)}
-                      >
-                        <Text style={[styles.levelPillLabel, sport.level === level && styles.levelPillLabelSelected]}>{level}</Text>
-                      </Pressable>
-                    ))}
-                  </View>
-
-                  <Text style={[styles.detailLabel, { marginTop: spacing.md }]}>Availability</Text>
-                  <Text style={styles.helperText}>Fill in your availability to appear in partner search for this sport.</Text>
-                  <View style={styles.dayCircleRow}>
-                    {DAY_ORDER.map((dayOfWeek, i) => {
-                      const active = Boolean(sport.days[dayOfWeek]);
-                      return (
-                        <Pressable
-                          key={dayOfWeek}
-                          style={[styles.dayCircle, active && styles.dayCircleActive]}
-                          onPress={() => toggleSportDay(sport.activityId, dayOfWeek)}
-                        >
-                          <Text style={[styles.dayCircleLabel, active && styles.dayCircleLabelActive]}>{DAY_LABELS[i]}</Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-
-                  {DAY_ORDER.filter((d) => sport.days[d]).map((dayOfWeek, idx) => (
-                    <DayTimeRow
-                      key={dayOfWeek}
-                      dayLabel={["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][dayOfWeek]}
-                      time={sport.days[dayOfWeek]}
-                      onChange={(field, value) => setSportDayTime(sport.activityId, dayOfWeek, field, value)}
-                    />
-                  ))}
-                </View>
-              );
-            })}
+            {Object.values(sports).map((sport) => (
+              <SportAvailabilityCard
+                key={sport.activityId}
+                activityName={activities.find((a) => a.id === sport.activityId)?.name ?? ""}
+                sport={sport}
+                onSetLevel={(level) => setSportLevel(sport.activityId, level)}
+                onToggleDay={(day) => toggleSportDay(sport.activityId, day)}
+                onSetDayTime={(day, field, value) => setSportDayTime(sport.activityId, day, field, value)}
+              />
+            ))}
           </>
         )}
 
@@ -314,53 +266,6 @@ export default function OnboardingScreen() {
   );
 }
 
-function DayTimeRow({
-  dayLabel,
-  time,
-  onChange,
-}: {
-  dayLabel: string;
-  time: DayAvailability;
-  onChange: (field: "startTime" | "endTime", value: string) => void;
-}) {
-  const [openField, setOpenField] = useState<"startTime" | "endTime" | null>(null);
-
-  function toDate(hhmm: string): Date {
-    const [h, m] = hhmm.split(":").map(Number);
-    const d = new Date();
-    d.setHours(h, m, 0, 0);
-    return d;
-  }
-
-  return (
-    <View style={styles.dayTimeRow}>
-      <Text style={styles.dayTimeLabel}>{dayLabel}</Text>
-      <Pressable style={styles.timeField} onPress={() => setOpenField("startTime")}>
-        <Text style={styles.timeFieldText}>{time.startTime}</Text>
-      </Pressable>
-      <Text style={styles.arrow}>→</Text>
-      <Pressable style={styles.timeField} onPress={() => setOpenField("endTime")}>
-        <Text style={styles.timeFieldText}>{time.endTime}</Text>
-      </Pressable>
-      {openField && (
-        <DateTimePicker
-          value={toDate(time[openField])}
-          mode="time"
-          display={Platform.OS === "ios" ? "spinner" : "default"}
-          onChange={(_event, date) => {
-            if (Platform.OS === "android") setOpenField(null);
-            if (date) {
-              const hh = String(date.getHours()).padStart(2, "0");
-              const mm = String(date.getMinutes()).padStart(2, "0");
-              onChange(openField, `${hh}:${mm}`);
-            }
-          }}
-        />
-      )}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.offWhite, padding: spacing.md },
   progressTrack: { height: 4, backgroundColor: colors.border, borderRadius: 2, overflow: "hidden" },
@@ -386,46 +291,20 @@ const styles = StyleSheet.create({
   datePickerWrap: { alignItems: "center", marginTop: spacing.lg },
   sportGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   sportCard: {
-    width: "47%",
-    height: 56,
+    width: "30%",
+    aspectRatio: 1,
     backgroundColor: colors.white,
     borderRadius: radii.sm,
     borderWidth: 1.5,
     borderColor: colors.border,
-    flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: spacing.md,
-    gap: spacing.sm,
+    justifyContent: "center",
+    padding: spacing.xs,
+    gap: 4,
   },
   sportCardSelected: { borderColor: colors.coral, backgroundColor: "#FFF5F3" },
-  sportIcon: { fontSize: 20 },
-  sportName: { fontFamily: typography.fontFamily, fontSize: 15, color: colors.charcoal },
-  sportDetailCard: {
-    backgroundColor: "#FFF5F3",
-    borderWidth: 1.5,
-    borderColor: colors.coral,
-    borderRadius: radii.sm,
-    padding: spacing.md,
-    marginTop: spacing.sm,
-  },
-  sportDetailTitle: { fontFamily: typography.fontFamilyBold, fontSize: 15, color: colors.charcoal, marginBottom: spacing.sm },
-  detailLabel: { fontFamily: typography.fontFamilyRegular, fontSize: 13, color: colors.muted },
-  helperText: { fontFamily: typography.fontFamilyRegular, fontSize: 12, color: colors.muted, fontStyle: "italic", marginTop: 2 },
-  pillRow: { flexDirection: "row", gap: spacing.xs, marginTop: spacing.sm, flexWrap: "wrap" },
-  levelPill: { height: 36, paddingHorizontal: 12, borderRadius: 18, borderWidth: 1, borderColor: colors.border, justifyContent: "center", backgroundColor: colors.white },
-  levelPillSelected: { backgroundColor: colors.coral, borderColor: colors.coral },
-  levelPillLabel: { fontFamily: typography.fontFamily, fontSize: 13, color: colors.charcoal },
-  levelPillLabelSelected: { color: colors.white },
-  dayCircleRow: { flexDirection: "row", gap: 6, marginTop: spacing.sm },
-  dayCircle: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center", backgroundColor: colors.white },
-  dayCircleActive: { backgroundColor: colors.coral, borderColor: colors.coral },
-  dayCircleLabel: { fontFamily: typography.fontFamily, fontSize: 13, color: colors.charcoal },
-  dayCircleLabelActive: { color: colors.white },
-  dayTimeRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginTop: spacing.sm },
-  dayTimeLabel: { fontFamily: typography.fontFamily, fontSize: 13, color: colors.charcoal, width: 36 },
-  timeField: { height: 36, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white, justifyContent: "center" },
-  timeFieldText: { fontFamily: typography.fontFamilyRegular, fontSize: 13, color: colors.charcoal },
-  arrow: { color: colors.muted },
+  sportIcon: { fontSize: 24 },
+  sportName: { fontFamily: typography.fontFamily, fontSize: 12, color: colors.charcoal, textAlign: "center" },
   photoCircle: {
     width: 120,
     height: 120,

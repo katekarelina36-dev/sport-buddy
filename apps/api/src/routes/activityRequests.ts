@@ -9,7 +9,15 @@ activityRequestsRouter.use(requireAuth);
 
 const createSchema = z.union([
   z.object({ postId: z.string(), slotId: z.string() }),
-  z.object({ targetUserId: z.string(), activityId: z.string() }),
+  z.object({
+    targetUserId: z.string(),
+    activityId: z.string(),
+    // F7 (Round 2): the specific day+time the requester picked from the
+    // target's availability calendar, shown back to them in F8.
+    selectedDayOfWeek: z.number().min(0).max(6).optional(),
+    selectedStartTime: z.string().optional(),
+    selectedEndTime: z.string().optional(),
+  }),
 ]);
 
 // F7 (legacy post flow) + F3/F4 (direct flow, sent from a discovered profile
@@ -39,7 +47,7 @@ activityRequestsRouter.post("/", async (req: AuthedRequest, res) => {
     return;
   }
 
-  const { targetUserId, activityId } = parsed.data;
+  const { targetUserId, activityId, selectedDayOfWeek, selectedStartTime, selectedEndTime } = parsed.data;
   const existing = await prisma.activityRequest.findFirst({
     where: { requesterId: req.userId!, targetUserId, activityId, status: "pending" },
   });
@@ -48,7 +56,7 @@ activityRequestsRouter.post("/", async (req: AuthedRequest, res) => {
     return;
   }
   const request = await prisma.activityRequest.create({
-    data: { requesterId: req.userId!, targetUserId, activityId, status: "pending" },
+    data: { requesterId: req.userId!, targetUserId, activityId, selectedDayOfWeek, selectedStartTime, selectedEndTime, status: "pending" },
   });
   notify(targetUserId, "activity_request_received", { message: "You have a new activity request." }, `/requests`);
   res.status(201).json(request);

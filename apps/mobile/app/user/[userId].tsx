@@ -2,28 +2,28 @@ import { useEffect, useState } from "react";
 import { View, Text, ScrollView, StyleSheet, Pressable, ActivityIndicator, Alert, Modal, TextInput } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { api } from "../../src/api/client";
-import { Card } from "../../src/components/Card";
 import { Badge } from "../../src/components/Badge";
 import { Button } from "../../src/components/Button";
 import { Avatar } from "../../src/components/Avatar";
+import { WeeklyAvailabilityWidget } from "../../src/components/WeeklyAvailabilityWidget";
+import { SendActivityRequestSheet } from "../../src/components/SendActivityRequestSheet";
 import { colors, spacing, typography, radii } from "../../src/theme";
 import { calculateAge } from "../../src/utils/age";
 import type { PublicUser } from "../../src/api/types";
 
-const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-// F4: full public profile detail, reached by tapping a card in F3. Shows all
-// sports the user has set availability for, plus communities and a safety
-// menu (report/block).
+// F4 (Round 2): full public profile detail, reached by tapping a card in F3.
+// Availability is shown ONLY for the sport the viewer navigated through
+// (?activityId=), as a tappable weekly calendar widget instead of a plain
+// list. "Also plays" lists other sports (level only, no availability).
 export default function UserProfileScreen() {
-  const { userId } = useLocalSearchParams<{ userId: string }>();
+  const { userId, activityId } = useLocalSearchParams<{ userId: string; activityId?: string }>();
   const router = useRouter();
   const [user, setUser] = useState<PublicUser | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState("");
-  const [sending, setSending] = useState(false);
   const [requested, setRequested] = useState(false);
+  const [requestSheetOpen, setRequestSheetOpen] = useState(false);
 
   useEffect(() => {
     api.get<PublicUser>(`/users/${userId}`).then((u) => {
@@ -35,21 +35,12 @@ export default function UserProfileScreen() {
   if (!user) return <ActivityIndicator style={{ marginTop: spacing.xl }} />;
 
   const age = user.profile?.dateOfBirth ? calculateAge(user.profile.dateOfBirth) : null;
-  const sportsWithAvailability = user.activities.filter((a) => user.availability.some((slot) => slot.dayOfWeek !== undefined));
-
-  async function sendRequest() {
-    const primaryActivity = user!.activities[0];
-    if (!primaryActivity) return;
-    setSending(true);
-    try {
-      await api.post("/activity-requests", { targetUserId: user!.id, activityId: primaryActivity.activityId });
-      setRequested(true);
-    } catch (err) {
-      Alert.alert("Couldn't send request", (err as Error).message);
-    } finally {
-      setSending(false);
-    }
-  }
+  const primaryActivityId = activityId ?? user.activities[0]?.activityId;
+  const primaryActivity = user.activities.find((a) => a.activityId === primaryActivityId) ?? user.activities[0];
+  const otherSports = user.activities.filter((a) => a.activityId !== primaryActivity?.activityId);
+  const primarySlots = user.availability
+    .filter((s) => s.dayOfWeek !== undefined)
+    .map((s) => ({ dayOfWeek: s.dayOfWeek!, startTime: s.startTime, endTime: s.endTime }));
 
   async function block() {
     setMenuOpen(false);
@@ -91,28 +82,31 @@ export default function UserProfileScreen() {
 
         <View style={styles.divider} />
 
-        <Text style={styles.sectionLabel}>SPORTS & AVAILABILITY</Text>
-        {user.activities.map((a) => {
-          const slots = user.availability.filter((s) => s.dayOfWeek !== undefined || s.date);
-          return (
-            <View key={a.activityId} style={styles.sportBlock}>
-              <View style={styles.sportHeaderRow}>
-                <Text style={styles.sportIcon}>🏅</Text>
-                <Text style={styles.sportName}>{a.activity.name}</Text>
+        {primaryActivity && (
+          <View>
+            <View style={styles.sportHeaderRow}>
+              <Text style={styles.sportIcon}>🏅</Text>
+              <Text style={styles.sportName}>{primaryActivity.activity.name}</Text>
+              <Badge label={primaryActivity.level} />
+            </View>
+            <View style={{ marginTop: spacing.md }}>
+              <WeeklyAvailabilityWidget slots={primarySlots} variant="view" />
+            </View>
+          </View>
+        )}
+
+        {otherSports.length > 0 && (
+          <>
+            <Text style={[styles.sectionLabel, { marginTop: spacing.lg }]}>ALSO PLAYS</Text>
+            {otherSports.map((a) => (
+              <View key={a.activityId} style={styles.otherSportRow}>
+                <Text style={styles.sportIconSmall}>🏅</Text>
+                <Text style={styles.otherSportName}>{a.activity.name}</Text>
                 <Badge label={a.level} />
               </View>
-              {slots.length > 0 ? (
-                slots.map((slot, i) => (
-                  <Text key={i} style={styles.slotRow}>
-                    {slot.dayOfWeek !== undefined ? DAY_NAMES[slot.dayOfWeek].padEnd(4) : ""} {slot.startTime} – {slot.endTime}
-                  </Text>
-                ))
-              ) : (
-                <Text style={styles.noAvailability}>No availability set yet</Text>
-              )}
-            </View>
-          );
-        })}
+            ))}
+          </>
+        )}
 
         {user.communityMembers.length > 0 && (
           <>
@@ -130,12 +124,29 @@ export default function UserProfileScreen() {
       </ScrollView>
 
       <View style={styles.bottomBar}>
-        <Pressable style={[styles.sendButton, requested && styles.sendButtonSent]} disabled={requested || sending} onPress={sendRequest}>
+        <Pressable
+          style={[styles.sendButton, requested && styles.sendButtonSent]}
+          disabled={requested}
+          onPress={() => setRequestSheetOpen(true)}
+        >
           <Text style={[styles.sendButtonLabel, requested && styles.sendButtonLabelSent]}>
-            {requested ? "Request Sent" : sending ? "Sending…" : "Send Activity Request"}
+            {requested ? "Request Sent" : "Send Activity Request"}
           </Text>
         </Pressable>
       </View>
+
+      {primaryActivity && (
+        <SendActivityRequestSheet
+          visible={requestSheetOpen}
+          onClose={() => setRequestSheetOpen(false)}
+          onSent={() => setRequested(true)}
+          targetUserId={user.id}
+          targetUserName={user.profile?.displayName ?? "this user"}
+          activityId={primaryActivity.activityId}
+          activityName={primaryActivity.activity.name}
+          slots={primarySlots}
+        />
+      )}
 
       <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
         <Pressable style={styles.menuBackdrop} onPress={() => setMenuOpen(false)}>
@@ -189,12 +200,12 @@ const styles = StyleSheet.create({
   statBadgeText: { fontFamily: typography.fontFamilyRegular, fontSize: 13, color: colors.charcoal },
   divider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.lg },
   sectionLabel: { fontFamily: typography.fontFamilyBold, fontSize: 12, color: colors.muted, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: spacing.sm },
-  sportBlock: { marginTop: spacing.md },
   sportHeaderRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
-  sportIcon: { fontSize: 18 },
+  sportIcon: { fontSize: 20 },
+  sportIconSmall: { fontSize: 16 },
   sportName: { fontFamily: typography.fontFamilyBold, fontSize: 16, color: colors.charcoal, flex: 1 },
-  slotRow: { fontFamily: typography.fontFamilyRegular, fontSize: 13, color: colors.muted, marginTop: 4 },
-  noAvailability: { fontFamily: typography.fontFamilyRegular, fontSize: 13, color: colors.muted, marginTop: 4, fontStyle: "italic" },
+  otherSportRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.sm },
+  otherSportName: { fontFamily: typography.fontFamilyRegular, fontSize: 14, color: colors.charcoal, flex: 1 },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   communityChip: { height: 28, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white, justifyContent: "center" },
   communityChipLabel: { fontFamily: typography.fontFamilyRegular, fontSize: 13, color: colors.charcoal },

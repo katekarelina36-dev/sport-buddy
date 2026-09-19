@@ -53,6 +53,7 @@ function RootNavigator() {
       <Stack.Screen name="requests/index" options={{ title: "Requests" }} />
       <Stack.Screen name="availability" options={{ title: "Availability" }} />
       <Stack.Screen name="profile/edit" options={{ title: "Edit profile" }} />
+      <Stack.Screen name="profile/activities" options={{ headerShown: false }} />
     </Stack>
   );
 }

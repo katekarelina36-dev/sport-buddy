@@ -1,17 +1,15 @@
 import { useState } from "react";
 import { View, Text, Modal, Pressable, StyleSheet } from "react-native";
-import Slider from "@react-native-community/slider";
 import { Button } from "./Button";
 import { colors, radii, spacing, typography } from "../theme";
 import type { SkillLevel } from "../api/types";
 
-const LEVELS: SkillLevel[] = ["beginner", "intermediate", "advanced"];
+const LEVELS: SkillLevel[] = ["beginner", "intermediate", "advanced", "pro"];
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export interface FilterValue {
   levels: SkillLevel[];
   days: number[];
-  distanceKm: number;
 }
 
 interface Props {
@@ -21,8 +19,9 @@ interface Props {
   onClose: () => void;
 }
 
-// F3 filter bottom sheet: level (multi-select), day (multi-select), distance
-// (slider 1-50km). Reset clears to defaults; Apply commits and closes.
+// F3 filter bottom sheet (Round 2): level + day, both multi-select. Distance
+// was removed from the spec (all seed profiles are in one city; city filter
+// is implicit for MVP). Reset clears to defaults; Apply commits and closes.
 export function FilterSheet({ visible, value, onApply, onClose }: Props) {
   const [draft, setDraft] = useState<FilterValue>(value);
 
@@ -69,23 +68,11 @@ export function FilterSheet({ visible, value, onApply, onClose }: Props) {
           })}
         </View>
 
-        <Text style={styles.sectionLabel}>Distance</Text>
-        <Text style={styles.distanceValue}>within {Math.round(draft.distanceKm)} km</Text>
-        <Slider
-          minimumValue={1}
-          maximumValue={50}
-          value={draft.distanceKm}
-          minimumTrackTintColor={colors.coral}
-          maximumTrackTintColor={colors.border}
-          thumbTintColor={colors.coral}
-          onValueChange={(v) => setDraft((d) => ({ ...d, distanceKm: v }))}
-        />
-
         <View style={styles.footer}>
-          <Pressable onPress={() => setDraft({ levels: [], days: [], distanceKm: 50 })}>
-            <Text style={styles.resetLabel}>Reset</Text>
-          </Pressable>
-          <View style={{ width: "45%" }}>
+          <View style={{ flex: 1, marginRight: spacing.sm }}>
+            <Button label="Reset" variant="outline" onPress={() => setDraft({ levels: [], days: [] })} />
+          </View>
+          <View style={{ flex: 1 }}>
             <Button
               label="Apply"
               onPress={() => {
@@ -112,11 +99,10 @@ const styles = StyleSheet.create({
   pillLabel: { fontFamily: typography.fontFamily, fontSize: 13, color: colors.charcoal },
   pillLabelSelected: { color: colors.white },
   dayRow: { flexDirection: "row", gap: 6 },
-  dayCircle: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center", backgroundColor: colors.white },
+  dayCircle: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center", backgroundColor: colors.white },
   dayCircleSelected: { backgroundColor: colors.coral, borderColor: colors.coral },
   dayLabel: { fontFamily: typography.fontFamily, fontSize: 13, color: colors.charcoal },
   dayLabelSelected: { color: colors.white },
-  distanceValue: { fontFamily: typography.fontFamilyRegular, fontSize: 13, color: colors.muted },
-  footer: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: spacing.lg, paddingBottom: spacing.md },
+  footer: { flexDirection: "row", marginTop: spacing.xl, paddingBottom: spacing.md },
   resetLabel: { fontFamily: typography.fontFamilyRegular, fontSize: 14, color: colors.muted },
 });

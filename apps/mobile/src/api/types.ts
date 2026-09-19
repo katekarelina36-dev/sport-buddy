@@ -1,4 +1,4 @@
-export type SkillLevel = "beginner" | "intermediate" | "advanced";
+export type SkillLevel = "beginner" | "intermediate" | "advanced" | "pro";
 
 export interface UserProfile {
   displayName: string;
