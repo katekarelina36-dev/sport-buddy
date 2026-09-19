@@ -166,7 +166,7 @@ export default function CreateCommunityScreen() {
               return (
                 <View key={u.id} style={styles.inviteRow}>
                   <Avatar photoUrl={u.profile?.photoUrl} size={36} />
-                  <Text style={styles.inviteName}>{u.profile?.displayName ?? "Sport Buddy user"}</Text>
+                  <Text style={styles.inviteName}>{u.profile?.displayName ?? "Teameo user"}</Text>
                   <Pressable
                     style={[styles.inviteButton, invited && styles.inviteButtonInvited]}
                     onPress={() => toggleInvite(u.id)}

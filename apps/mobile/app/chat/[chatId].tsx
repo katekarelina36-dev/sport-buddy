@@ -239,7 +239,7 @@ export default function ChatScreen() {
         <Avatar photoUrl={partner?.profile?.photoUrl} size={40} />
         <View style={styles.headerNameCol}>
           <Text style={styles.headerName} numberOfLines={1}>
-            {partner?.profile?.displayName ?? "Sport Buddy user"}
+            {partner?.profile?.displayName ?? "Teameo user"}
           </Text>
           {chat && chat.sports.length > 0 && (
             <Text style={styles.headerStatus} numberOfLines={1}>

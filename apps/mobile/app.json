@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Sport Buddy",
+    "name": "Teameo",
     "slug": "sport-buddy",
     "scheme": "sportbuddy",
     "version": "0.1.0",
@@ -14,8 +14,8 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.sportbuddy.app",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Sport Buddy uses your location to show nearby activity partners and communities.",
-        "NSCalendarsUsageDescription": "Sport Buddy can add scheduled events to your calendar."
+        "NSLocationWhenInUseUsageDescription": "Teameo uses your location to show nearby activity partners and communities.",
+        "NSCalendarsUsageDescription": "Teameo can add scheduled events to your calendar."
       }
     },
     "android": {

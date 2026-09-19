@@ -64,5 +64,5 @@ attachChatGateway(io);
 startWaitlistMatchingLoop();
 
 server.listen(env.port, () => {
-  console.log(`Sport Buddy API listening on :${env.port}`);
+  console.log(`Teameo API listening on :${env.port}`);
 });

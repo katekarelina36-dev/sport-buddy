@@ -1,4 +1,4 @@
-# Sport Buddy
+# Teameo
 
 A mobile app for finding sport partners and joining active communities. Two core pillars: a fast, low-friction first match, and a community worth coming back to.
 

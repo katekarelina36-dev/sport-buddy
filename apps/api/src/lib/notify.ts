@@ -27,7 +27,7 @@ function titleFor(type: string): string {
     training_reminder: "Upcoming event",
     challenge_sent: "New challenge card",
   };
-  return titles[type] ?? "Sport Buddy";
+  return titles[type] ?? "Teameo";
 }
 
 function bodyFor(type: string, payload: Record<string, unknown>): string {

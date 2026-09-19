@@ -37,7 +37,7 @@ export default function ChatsScreen() {
               <Avatar photoUrl={partner.profile?.photoUrl} />
               <View style={{ flex: 1 }}>
                 <View style={styles.nameRow}>
-                  <Text style={styles.name}>{partner.profile?.displayName ?? "Sport Buddy user"}</Text>
+                  <Text style={styles.name}>{partner.profile?.displayName ?? "Teameo user"}</Text>
                   {item.isClosed && (
                     <View style={styles.closedPill}>
                       <Text style={styles.closedPillText}>Closed</Text>

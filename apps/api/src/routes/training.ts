@@ -110,7 +110,7 @@ trainingRouter.post("/", async (req: AuthedRequest, res) => {
     const result = await calendarDriver.createEvent({
       userId: training.hostId,
       provider: "google",
-      title: `Sport Buddy: ${activityId}`,
+      title: `Teameo: ${activityId}`,
       startAt: training.scheduledAt,
       location: locationText,
     });

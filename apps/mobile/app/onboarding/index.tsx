@@ -119,7 +119,7 @@ export default function OnboardingScreen() {
 
   async function next() {
     if (step === "dob" && calculateAge(dateOfBirth) < MIN_ONBOARDING_AGE) {
-      Alert.alert("Must be 16 or older", `You need to be at least ${MIN_ONBOARDING_AGE} to use Sport Buddy.`);
+      Alert.alert("Must be 16 or older", `You need to be at least ${MIN_ONBOARDING_AGE} to use Teameo.`);
       return;
     }
     if (!isLast) {
