@@ -60,9 +60,6 @@ export default function ProfileScreen() {
         <View style={styles.statPill}>
           <Text style={styles.statPillText}>{profile.profile?.completedTrainingsCount ?? 0} completed events</Text>
         </View>
-        <Pressable style={styles.editButton} onPress={() => router.push("/profile/edit")}>
-          <Text style={styles.editButtonLabel}>Edit Profile</Text>
-        </Pressable>
       </View>
 
       <Pressable style={styles.requestsRow} onPress={() => router.push("/requests")}>
@@ -172,9 +169,9 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 0,
     right: 0,
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: colors.coral,
     alignItems: "center",
     justifyContent: "center",
@@ -186,8 +183,6 @@ const styles = StyleSheet.create({
   subtitle: { fontFamily: typography.fontFamilyRegular, fontSize: 14, color: colors.muted, marginTop: 2 },
   statPill: { backgroundColor: colors.sageLight, height: 28, paddingHorizontal: 14, borderRadius: 14, justifyContent: "center", marginTop: spacing.sm },
   statPillText: { fontFamily: typography.fontFamily, fontSize: 13, color: colors.sageDark },
-  editButton: { height: 40, paddingHorizontal: 20, borderRadius: 20, borderWidth: 1, borderColor: colors.coral, alignItems: "center", justifyContent: "center", marginTop: spacing.md },
-  editButtonLabel: { fontFamily: typography.fontFamilyBold, fontSize: 14, color: colors.coral },
   requestsRow: {
     flexDirection: "row",
     alignItems: "center",

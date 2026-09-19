@@ -29,28 +29,37 @@ function slug(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
 
-// Round 2: 10 fully-populated seed profiles so the Explore feed isn't empty on first launch.
-const DEMO_PROFILES: { name: string; age: number; sports: [string, SkillLevel][] }[] = [
-  { name: "Anna Kowalska", age: 27, sports: [["Tennis", "intermediate"]] },
-  { name: "Piotr Nowak", age: 34, sports: [["Running", "advanced"], ["Cycling", "intermediate"]] },
-  { name: "Zofia Wisniewski", age: 23, sports: [["Yoga", "beginner"]] },
-  { name: "Jakub Wojcik", age: 39, sports: [["Football", "advanced"], ["Basketball", "intermediate"]] },
-  { name: "Maria Kaminski", age: 30, sports: [["Climbing", "intermediate"]] },
-  { name: "Tomasz Lewandowski", age: 25, sports: [["Padel", "beginner"], ["Squash", "beginner"]] },
-  { name: "Aleksandra Zielinski", age: 36, sports: [["Chess", "pro"]] },
-  { name: "Michal Szymanski", age: 22, sports: [["Boxing", "intermediate"]] },
-  { name: "Karolina Wozniak", age: 32, sports: [["Swimming", "advanced"], ["Table Tennis", "beginner"]] },
-  { name: "Adam Dabrowski", age: 40, sports: [["Hiking", "intermediate"]] },
-];
-
-const DAYS_OF_WEEK = [0, 1, 2, 3, 4, 5, 6];
-function randomDays(min: number, max: number): number[] {
-  const count = min + Math.floor(Math.random() * (max - min + 1));
-  const shuffled = [...DAYS_OF_WEEK].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, count);
+// Round 8: "N weeks ago, on this weekday, at this time" — used for the
+// Alice/Bob completed-session history so the dates read as a real past.
+function weeksAgoOnWeekday(weeksAgo: number, weekday: number, hour: number, minute: number): Date {
+  const d = new Date();
+  d.setDate(d.getDate() - weeksAgo * 7);
+  d.setDate(d.getDate() + (weekday - d.getDay()));
+  d.setHours(hour, minute, 0, 0);
+  return d;
 }
-function randomHour(): number {
-  return 7 + Math.floor(Math.random() * (21 - 7));
+
+// Round 8: "next <weekday> at this time" — used for club events.
+function nextWeekday(weekday: number, hour: number, minute: number): Date {
+  const now = new Date();
+  const d = new Date(now);
+  d.setHours(hour, minute, 0, 0);
+  let daysUntil = (weekday - now.getDay() + 7) % 7;
+  if (daysUntil === 0 && d.getTime() <= now.getTime()) daysUntil = 7;
+  d.setDate(d.getDate() + daysUntil);
+  return d;
+}
+
+function daysAgo(n: number): Date {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d;
+}
+
+interface SportSlot {
+  activityName: string;
+  level: SkillLevel;
+  slots: { dayOfWeek: number; startTime: string; endTime: string }[];
 }
 
 async function main() {
@@ -69,73 +78,27 @@ async function main() {
   }
 
   const passwordHash = await bcrypt.hash("password123", 10);
-  const alice = await prisma.user.upsert({
-    where: { email: "alice@example.com" },
-    update: {},
-    create: {
-      email: "alice@example.com",
-      passwordHash,
-      profile: {
-        create: { displayName: "Alice", city: "Warsaw", dateOfBirth: new Date("1996-04-12"), bio: "Weekend tennis player, always up for a rally.", onboardingCompletedAt: new Date() },
-      },
-      permissions: { create: { locationGranted: true, calendarGranted: false, pushGranted: true } },
-    },
-  });
-  const bob = await prisma.user.upsert({
-    where: { email: "bob@example.com" },
-    update: {},
-    create: {
-      email: "bob@example.com",
-      passwordHash,
-      profile: {
-        create: { displayName: "Bob", city: "Warsaw", dateOfBirth: new Date("1999-11-02"), bio: "Training for a 10k, love an early run.", onboardingCompletedAt: new Date() },
-      },
-      permissions: { create: { locationGranted: true, calendarGranted: false, pushGranted: true } },
-    },
-  });
-  await prisma.userProfile.update({ where: { userId: alice.id }, data: { city: "Warsaw", dateOfBirth: new Date("1996-04-12") } });
-  await prisma.userProfile.update({ where: { userId: bob.id }, data: { city: "Warsaw", dateOfBirth: new Date("1999-11-02") } });
 
-  const tennis = await prisma.activity.findUniqueOrThrow({ where: { id: "tennis" } });
-  const running = await prisma.activity.findUniqueOrThrow({ where: { id: "running" } });
-  await prisma.userActivity.upsert({
-    where: { userId_activityId: { userId: alice.id, activityId: tennis.id } },
-    update: { level: "intermediate", isPreferred: true },
-    create: { userId: alice.id, activityId: tennis.id, level: "intermediate", isPreferred: true },
-  });
-  await prisma.userActivity.upsert({
-    where: { userId_activityId: { userId: bob.id, activityId: running.id } },
-    update: { level: "beginner", isPreferred: true },
-    create: { userId: bob.id, activityId: running.id, level: "beginner", isPreferred: true },
-  });
-  await prisma.userAvailability.createMany({
-    data: [
-      { userId: alice.id, activityId: tennis.id, dayOfWeek: 2, startTime: "18:00", endTime: "20:00", recurring: true },
-      { userId: alice.id, activityId: tennis.id, dayOfWeek: 4, startTime: "18:00", endTime: "20:00", recurring: true },
-      { userId: bob.id, activityId: running.id, dayOfWeek: 6, startTime: "08:00", endTime: "10:00", recurring: true },
-    ],
-    skipDuplicates: true,
-  });
-
-  // Round 2: 10 additional fully-populated demo profiles for the Explore feed.
-  for (let i = 0; i < DEMO_PROFILES.length; i++) {
-    const demo = DEMO_PROFILES[i];
-    const email = `${slug(demo.name)}@example.com`;
-    const dob = new Date();
-    dob.setFullYear(dob.getFullYear() - demo.age);
-
+  async function createUser(opts: {
+    email: string;
+    displayName: string;
+    dateOfBirth: string;
+    photoUrl: string;
+    completedTrainingsCount?: number;
+    communityUnlockNotified?: boolean;
+  }) {
     const user = await prisma.user.upsert({
-      where: { email },
+      where: { email: opts.email },
       update: {},
       create: {
-        email,
+        email: opts.email,
         passwordHash,
         profile: {
           create: {
-            displayName: demo.name,
+            displayName: opts.displayName,
             city: "Warsaw",
-            dateOfBirth: dob,
-            photoUrl: `https://i.pravatar.cc/150?img=${i + 1}`,
+            dateOfBirth: new Date(opts.dateOfBirth),
+            photoUrl: opts.photoUrl,
             onboardingCompletedAt: new Date(),
           },
         },
@@ -144,143 +107,130 @@ async function main() {
     });
     await prisma.userProfile.update({
       where: { userId: user.id },
-      data: { city: "Warsaw", dateOfBirth: dob, photoUrl: `https://i.pravatar.cc/150?img=${i + 1}` },
-    });
-
-    for (const [sportName, level] of demo.sports) {
-      const activity = await prisma.activity.findUniqueOrThrow({ where: { id: slug(sportName) } });
-      await prisma.userActivity.upsert({
-        where: { userId_activityId: { userId: user.id, activityId: activity.id } },
-        update: { level, isPreferred: true },
-        create: { userId: user.id, activityId: activity.id, level, isPreferred: true },
-      });
-
-      const days = randomDays(2, 4);
-      await prisma.userAvailability.deleteMany({ where: { userId: user.id, activityId: activity.id } });
-      await prisma.userAvailability.createMany({
-        data: days.map((dayOfWeek) => {
-          const startHour = randomHour();
-          return {
-            userId: user.id,
-            activityId: activity.id,
-            dayOfWeek,
-            startTime: `${String(startHour).padStart(2, "0")}:00`,
-            endTime: `${String(Math.min(startHour + 2, 22)).padStart(2, "0")}:00`,
-            recurring: true,
-          };
-        }),
-      });
-    }
-  }
-
-  // More seed data: chats already existing between users, so the Chats tab
-  // isn't empty on first launch, plus a fleshed-out Alice/Bob history.
-  async function findDemoUser(name: string) {
-    return prisma.user.findUniqueOrThrow({ where: { email: `${slug(name)}@example.com` } });
-  }
-
-  async function seedApprovedChat(opts: { requesterId: string; recipientId: string; activityId: string; greeting: string }): Promise<string> {
-    const { requesterId, recipientId, activityId, greeting } = opts;
-    const [userAId, userBId] = [requesterId, recipientId].sort();
-    const existingChat = await prisma.chat.findUnique({ where: { userAId_userBId: { userAId, userBId } } });
-    const existingSport = existingChat
-      ? await prisma.chatSport.findUnique({ where: { chatId_activityId: { chatId: existingChat.id, activityId } } })
-      : null;
-    if (existingChat && existingSport) return existingChat.id;
-
-    const request = await prisma.activityRequest.create({
-      data: { requesterId, targetUserId: recipientId, activityId, status: "approved", decidedAt: new Date() },
-    });
-
-    if (existingChat) {
-      await prisma.chatSport.create({ data: { chatId: existingChat.id, activityId, activityRequestId: request.id } });
-      return existingChat.id;
-    }
-
-    const chat = await prisma.chat.create({
       data: {
-        userAId,
-        userBId,
-        originatingRequestId: request.id,
-        sports: { create: { activityId, activityRequestId: request.id } },
-        messages: { create: { type: "template", body: greeting } },
+        city: "Warsaw",
+        dateOfBirth: new Date(opts.dateOfBirth),
+        photoUrl: opts.photoUrl,
+        completedTrainingsCount: opts.completedTrainingsCount ?? 0,
+        communityUnlockNotified: opts.communityUnlockNotified ?? false,
       },
     });
-    return chat.id;
+    return user;
   }
 
-  // A couple of pre-existing chats among the Round 2 demo profiles, matched
-  // on the sport they already share with Alice/Bob, so the Chats list has
-  // more than one conversation to show.
-  const annaKowalska = await findDemoUser("Anna Kowalska");
-  const piotrNowak = await findDemoUser("Piotr Nowak");
-  await seedApprovedChat({
-    requesterId: alice.id,
-    recipientId: annaKowalska.id,
-    activityId: tennis.id,
-    greeting: "Hey! Fancy a tennis match this week?",
-  });
-  await seedApprovedChat({
-    requesterId: bob.id,
-    recipientId: piotrNowak.id,
-    activityId: running.id,
-    greeting: "Hey! I'm training for a 10k too, want to run together sometime?",
-  });
-
-  // Alice & Bob: matched on both Tennis and Volleyball, with a shared history
-  // of 3 completed sessions per sport, leaving both sports free to schedule a
-  // new Event (nothing is left "scheduled").
-  const volleyball = await prisma.activity.findUniqueOrThrow({ where: { id: "volleyball" } });
-
-  for (const [user, activityId] of [
-    [alice, tennis.id],
-    [alice, volleyball.id],
-    [bob, tennis.id],
-    [bob, volleyball.id],
-  ] as const) {
+  // Round 8, Step 3: every non-power-user also gets an auto-generated
+  // ActivityPost per sport (mirroring what PUT /availability?activityId=
+  // does live), so they show up in the Explore feed / discover results.
+  async function addSport(userId: string, sport: SportSlot) {
+    const activity = await prisma.activity.findUniqueOrThrow({ where: { id: slug(sport.activityName) } });
     await prisma.userActivity.upsert({
-      where: { userId_activityId: { userId: user.id, activityId } },
-      update: { level: "intermediate", isPreferred: true },
-      create: { userId: user.id, activityId, level: "intermediate", isPreferred: true },
+      where: { userId_activityId: { userId, activityId: activity.id } },
+      update: { level: sport.level, isPreferred: true },
+      create: { userId, activityId: activity.id, level: sport.level, isPreferred: true },
     });
+    await prisma.userAvailability.deleteMany({ where: { userId, activityId: activity.id } });
+    await prisma.userAvailability.createMany({
+      data: sport.slots.map((s) => ({ userId, activityId: activity.id, ...s, recurring: true })),
+    });
+    await prisma.activityPost.upsert({
+      where: { authorId_activityId: { authorId: userId, activityId: activity.id } },
+      update: { level: sport.level, status: "active" },
+      create: { authorId: userId, activityId: activity.id, level: sport.level, status: "active", autoGenerated: true, maxParticipants: 1 },
+    });
+    return activity;
   }
-  await prisma.userAvailability.deleteMany({ where: { userId: { in: [alice.id, bob.id] }, activityId: volleyball.id } });
-  await prisma.userAvailability.createMany({
-    data: [
-      { userId: alice.id, activityId: volleyball.id, dayOfWeek: 3, startTime: "19:00", endTime: "21:00", recurring: true },
-      { userId: bob.id, activityId: volleyball.id, dayOfWeek: 3, startTime: "19:00", endTime: "21:00", recurring: true },
+
+  // ---------------------------------------------------------------------
+  // Step 2: Alice & Bob — power users with a rich shared history.
+  // ---------------------------------------------------------------------
+  const alice = await createUser({
+    email: "alice@example.com",
+    displayName: "Alice",
+    dateOfBirth: "1995-03-12",
+    photoUrl: "https://i.pravatar.cc/150?img=1",
+    completedTrainingsCount: 8,
+    communityUnlockNotified: true,
+  });
+  const bob = await createUser({
+    email: "bob@example.com",
+    displayName: "Bob",
+    dateOfBirth: "1993-07-24",
+    photoUrl: "https://i.pravatar.cc/150?img=3",
+    completedTrainingsCount: 8,
+    communityUnlockNotified: true,
+  });
+
+  const tennis = await addSport(alice.id, {
+    activityName: "Tennis",
+    level: "intermediate",
+    slots: [
+      { dayOfWeek: 1, startTime: "18:00", endTime: "20:00" },
+      { dayOfWeek: 3, startTime: "18:00", endTime: "20:00" },
+      { dayOfWeek: 5, startTime: "17:00", endTime: "19:00" },
+    ],
+  });
+  const dancing = await addSport(alice.id, {
+    activityName: "Dancing",
+    level: "beginner",
+    slots: [
+      { dayOfWeek: 2, startTime: "19:00", endTime: "21:00" },
+      { dayOfWeek: 4, startTime: "19:00", endTime: "21:00" },
+    ],
+  });
+  await addSport(bob.id, {
+    activityName: "Tennis",
+    level: "intermediate",
+    slots: [
+      { dayOfWeek: 1, startTime: "18:00", endTime: "20:00" },
+      { dayOfWeek: 3, startTime: "18:00", endTime: "20:00" },
+    ],
+  });
+  await addSport(bob.id, {
+    activityName: "Dancing",
+    level: "beginner",
+    slots: [
+      { dayOfWeek: 2, startTime: "19:00", endTime: "21:00" },
+      { dayOfWeek: 4, startTime: "19:00", endTime: "21:00" },
     ],
   });
 
-  const aliceBobChatId = await seedApprovedChat({
-    requesterId: bob.id,
-    recipientId: alice.id,
-    activityId: tennis.id,
-    greeting: "Hey! I think we can do this activity together — which time would you prefer?",
-  });
-  await seedApprovedChat({
-    requesterId: alice.id,
-    recipientId: bob.id,
-    activityId: volleyball.id,
-    greeting: "Hey! I think we can do this activity together — which time would you prefer?",
-  });
+  const [aliceBobUserAId, aliceBobUserBId] = [alice.id, bob.id].sort();
+  let aliceBobChat = await prisma.chat.findUnique({ where: { userAId_userBId: { userAId: aliceBobUserAId, userBId: aliceBobUserBId } } });
+  if (!aliceBobChat) {
+    aliceBobChat = await prisma.chat.create({
+      data: {
+        userAId: aliceBobUserAId,
+        userBId: aliceBobUserBId,
+        sports: { create: [{ activityId: tennis.id }, { activityId: dancing.id }] },
+      },
+    });
 
-  async function seedCompletedHistory(chatId: string, activityId: string, count: number) {
-    const existing = await prisma.trainingSession.count({ where: { chatId, activityId, status: "completed" } });
-    for (let i = existing; i < count; i++) {
-      const anyPriorCompleted = await prisma.trainingSession.findFirst({ where: { chatId, status: "completed" } });
-      const scheduledAt = new Date();
-      scheduledAt.setDate(scheduledAt.getDate() - (count - i) * 14);
+    const tennisDates = [
+      weeksAgoOnWeekday(4, 1, 18, 0),
+      weeksAgoOnWeekday(3, 3, 18, 0),
+      weeksAgoOnWeekday(2, 1, 18, 0),
+      weeksAgoOnWeekday(1, 3, 18, 0),
+    ];
+    const dancingDates = [
+      weeksAgoOnWeekday(4, 2, 19, 0),
+      weeksAgoOnWeekday(3, 4, 19, 0),
+      weeksAgoOnWeekday(2, 2, 19, 0),
+      weeksAgoOnWeekday(1, 4, 19, 0),
+    ];
+
+    for (const [i, scheduledAt] of tennisDates.entries()) {
+      const completedAt = new Date(scheduledAt);
+      completedAt.setHours(20, 0, 0, 0);
       await prisma.trainingSession.create({
         data: {
-          chatId,
-          hostId: i % 2 === 0 ? alice.id : bob.id,
-          participantId: i % 2 === 0 ? bob.id : alice.id,
-          activityId,
+          chatId: aliceBobChat.id,
+          hostId: alice.id,
+          participantId: bob.id,
+          activityId: tennis.id,
           scheduledAt,
           status: "completed",
-          completedAt: scheduledAt,
-          isFirstBetweenUsers: !anyPriorCompleted,
+          completedAt,
+          isFirstBetweenUsers: i === 0,
           completedByUserA: true,
           completedByUserB: true,
           didHappenA: true,
@@ -290,21 +240,266 @@ async function main() {
         },
       });
     }
-  }
-  await seedCompletedHistory(aliceBobChatId, tennis.id, 3);
-  await seedCompletedHistory(aliceBobChatId, volleyball.id, 3);
+    for (const scheduledAt of dancingDates) {
+      const completedAt = new Date(scheduledAt);
+      completedAt.setHours(21, 0, 0, 0);
+      await prisma.trainingSession.create({
+        data: {
+          chatId: aliceBobChat.id,
+          hostId: alice.id,
+          participantId: bob.id,
+          activityId: dancing.id,
+          scheduledAt,
+          status: "completed",
+          completedAt,
+          isFirstBetweenUsers: false,
+          completedByUserA: true,
+          completedByUserB: true,
+          didHappenA: true,
+          didHappenB: true,
+          wouldPlayAgainA: true,
+          wouldPlayAgainB: true,
+        },
+      });
+    }
 
-  for (const user of [alice, bob]) {
-    const completedCount = await prisma.trainingSession.count({
-      where: { status: "completed", OR: [{ hostId: user.id }, { participantId: user.id }] },
-    });
-    await prisma.userProfile.update({
-      where: { userId: user.id },
-      data: { completedTrainingsCount: completedCount, communityUnlockNotified: completedCount >= 3 },
+    const dateLabel = (d: Date) => d.toLocaleDateString([], { day: "numeric", month: "short" });
+    const messages: { senderId?: string; type: "text" | "system"; body: string }[] = [
+      { senderId: alice.id, type: "text", body: "Hey! Want to play tennis together?" },
+      { senderId: bob.id, type: "text", body: "Sure! When works for you?" },
+      { senderId: alice.id, type: "text", body: "How about Monday at 6pm?" },
+      { senderId: bob.id, type: "text", body: "Perfect, see you there!" },
+      { type: "system", body: `Tennis session completed · ${dateLabel(tennisDates[0])}` },
+      { senderId: bob.id, type: "text", body: "Great game! Want to do it again?" },
+      { senderId: alice.id, type: "text", body: "Definitely! Same time Wednesday?" },
+      { type: "system", body: `Tennis session completed · ${dateLabel(tennisDates[1])}` },
+      { senderId: alice.id, type: "text", body: "Also, want to try dancing together on Tuesday?" },
+      { senderId: bob.id, type: "text", body: "Why not! Let's do it." },
+      { type: "system", body: `Dancing session completed · ${dateLabel(dancingDates[0])}` },
+      { type: "system", body: `Tennis session completed · ${dateLabel(tennisDates[2])}` },
+      { type: "system", body: `Dancing session completed · ${dateLabel(dancingDates[1])}` },
+      { type: "system", body: `Tennis session completed · ${dateLabel(tennisDates[3])}` },
+      { type: "system", body: `Dancing session completed · ${dateLabel(dancingDates[3])}` },
+      { senderId: alice.id, type: "text", body: "Ready for the next session? Tap Schedule Event to plan it." },
+    ];
+    const messageBaseTime = weeksAgoOnWeekday(4, 1, 17, 0).getTime();
+    await prisma.message.createMany({
+      data: messages.map((m, i) => ({
+        chatId: aliceBobChat!.id,
+        senderId: m.senderId,
+        type: m.type,
+        body: m.body,
+        createdAt: new Date(messageBaseTime + i * 30 * 60 * 1000),
+      })),
     });
   }
 
-  console.log(`Seeded ${ACTIVITIES.length} activities, 2 core demo users + ${DEMO_PROFILES.length} Round 2 profiles (password: password123)`);
+  // ---------------------------------------------------------------------
+  // Step 3: 10 additional users, each with 3 sports + activity posts.
+  // ---------------------------------------------------------------------
+  const marta = await createUser({ email: "marta@example.com", displayName: "Marta", dateOfBirth: "1998-05-20", photoUrl: "https://i.pravatar.cc/150?img=5", completedTrainingsCount: 1 });
+  await addSport(marta.id, { activityName: "Running", level: "beginner", slots: [{ dayOfWeek: 1, startTime: "07:00", endTime: "08:00" }, { dayOfWeek: 3, startTime: "07:00", endTime: "08:00" }] });
+  await addSport(marta.id, { activityName: "Yoga", level: "beginner", slots: [{ dayOfWeek: 2, startTime: "08:00", endTime: "09:00" }, { dayOfWeek: 4, startTime: "08:00", endTime: "09:00" }] });
+  await addSport(marta.id, { activityName: "Cycling", level: "intermediate", slots: [{ dayOfWeek: 6, startTime: "10:00", endTime: "12:00" }] });
+
+  const piotr = await createUser({ email: "piotr@example.com", displayName: "Piotr", dateOfBirth: "1990-11-03", photoUrl: "https://i.pravatar.cc/150?img=7", completedTrainingsCount: 2 });
+  await addSport(piotr.id, { activityName: "Football", level: "intermediate", slots: [{ dayOfWeek: 2, startTime: "18:00", endTime: "20:00" }, { dayOfWeek: 4, startTime: "18:00", endTime: "20:00" }] });
+  await addSport(piotr.id, { activityName: "Basketball", level: "beginner", slots: [{ dayOfWeek: 6, startTime: "14:00", endTime: "16:00" }] });
+  await addSport(piotr.id, { activityName: "Swimming", level: "intermediate", slots: [{ dayOfWeek: 1, startTime: "07:00", endTime: "08:00" }, { dayOfWeek: 3, startTime: "07:00", endTime: "08:00" }] });
+
+  const karolina = await createUser({ email: "karolina@example.com", displayName: "Karolina", dateOfBirth: "1996-08-15", photoUrl: "https://i.pravatar.cc/150?img=9", completedTrainingsCount: 1 });
+  await addSport(karolina.id, { activityName: "Dancing", level: "intermediate", slots: [{ dayOfWeek: 1, startTime: "19:00", endTime: "21:00" }, { dayOfWeek: 3, startTime: "19:00", endTime: "21:00" }] });
+  await addSport(karolina.id, { activityName: "Pilates", level: "beginner", slots: [{ dayOfWeek: 2, startTime: "07:00", endTime: "08:00" }, { dayOfWeek: 4, startTime: "07:00", endTime: "08:00" }] });
+  await addSport(karolina.id, { activityName: "Tennis", level: "beginner", slots: [{ dayOfWeek: 6, startTime: "10:00", endTime: "12:00" }] });
+
+  const tomasz = await createUser({ email: "tomasz@example.com", displayName: "Tomasz", dateOfBirth: "1988-02-28", photoUrl: "https://i.pravatar.cc/150?img=11", completedTrainingsCount: 2 });
+  await addSport(tomasz.id, { activityName: "Chess", level: "advanced", slots: [{ dayOfWeek: 1, startTime: "20:00", endTime: "22:00" }, { dayOfWeek: 5, startTime: "20:00", endTime: "22:00" }] });
+  await addSport(tomasz.id, { activityName: "Hiking", level: "intermediate", slots: [{ dayOfWeek: 6, startTime: "09:00", endTime: "13:00" }] });
+  await addSport(tomasz.id, { activityName: "Badminton", level: "intermediate", slots: [{ dayOfWeek: 3, startTime: "18:00", endTime: "20:00" }] });
+
+  const natalia = await createUser({ email: "natalia@example.com", displayName: "Natalia", dateOfBirth: "1999-12-01", photoUrl: "https://i.pravatar.cc/150?img=13", completedTrainingsCount: 0 });
+  await addSport(natalia.id, { activityName: "Volleyball", level: "beginner", slots: [{ dayOfWeek: 2, startTime: "18:00", endTime: "20:00" }, { dayOfWeek: 4, startTime: "18:00", endTime: "20:00" }] });
+  await addSport(natalia.id, { activityName: "Running", level: "intermediate", slots: [{ dayOfWeek: 1, startTime: "07:00", endTime: "08:00" }, { dayOfWeek: 3, startTime: "07:00", endTime: "08:00" }] });
+  await addSport(natalia.id, { activityName: "Gym / Fitness", level: "beginner", slots: [{ dayOfWeek: 1, startTime: "07:00", endTime: "08:00" }, { dayOfWeek: 3, startTime: "07:00", endTime: "08:00" }, { dayOfWeek: 5, startTime: "07:00", endTime: "08:00" }] });
+
+  const marcin = await createUser({ email: "marcin@example.com", displayName: "Marcin", dateOfBirth: "1992-04-10", photoUrl: "https://i.pravatar.cc/150?img=15", completedTrainingsCount: 5, communityUnlockNotified: true });
+  await addSport(marcin.id, { activityName: "Tennis", level: "advanced", slots: [{ dayOfWeek: 1, startTime: "18:00", endTime: "20:00" }, { dayOfWeek: 3, startTime: "18:00", endTime: "20:00" }, { dayOfWeek: 5, startTime: "18:00", endTime: "20:00" }] });
+  await addSport(marcin.id, { activityName: "Padel", level: "intermediate", slots: [{ dayOfWeek: 6, startTime: "10:00", endTime: "12:00" }] });
+  await addSport(marcin.id, { activityName: "Running", level: "intermediate", slots: [{ dayOfWeek: 2, startTime: "07:00", endTime: "08:00" }, { dayOfWeek: 4, startTime: "07:00", endTime: "08:00" }] });
+
+  const ewa = await createUser({ email: "ewa@example.com", displayName: "Ewa", dateOfBirth: "1994-09-22", photoUrl: "https://i.pravatar.cc/150?img=17", completedTrainingsCount: 4, communityUnlockNotified: true });
+  await addSport(ewa.id, { activityName: "Dancing", level: "advanced", slots: [{ dayOfWeek: 2, startTime: "19:00", endTime: "21:00" }, { dayOfWeek: 4, startTime: "19:00", endTime: "21:00" }] });
+  await addSport(ewa.id, { activityName: "Yoga", level: "intermediate", slots: [{ dayOfWeek: 1, startTime: "08:00", endTime: "09:00" }, { dayOfWeek: 3, startTime: "08:00", endTime: "09:00" }] });
+  await addSport(ewa.id, { activityName: "Pilates", level: "intermediate", slots: [{ dayOfWeek: 5, startTime: "08:00", endTime: "09:00" }] });
+
+  const krzysztof = await createUser({ email: "krzysztof@example.com", displayName: "Krzysztof", dateOfBirth: "1987-06-05", photoUrl: "https://i.pravatar.cc/150?img=19", completedTrainingsCount: 6, communityUnlockNotified: true });
+  await addSport(krzysztof.id, { activityName: "Basketball", level: "advanced", slots: [{ dayOfWeek: 1, startTime: "18:00", endTime: "20:00" }, { dayOfWeek: 3, startTime: "18:00", endTime: "20:00" }, { dayOfWeek: 5, startTime: "18:00", endTime: "20:00" }] });
+  await addSport(krzysztof.id, { activityName: "Football", level: "advanced", slots: [{ dayOfWeek: 2, startTime: "18:00", endTime: "20:00" }, { dayOfWeek: 4, startTime: "18:00", endTime: "20:00" }] });
+  await addSport(krzysztof.id, {
+    activityName: "Gym / Fitness",
+    level: "advanced",
+    slots: [1, 2, 3, 4, 5].map((dayOfWeek) => ({ dayOfWeek, startTime: "07:00", endTime: "08:00" })),
+  });
+
+  const zofia = await createUser({ email: "zofia@example.com", displayName: "Zofia", dateOfBirth: "1997-03-14", photoUrl: "https://i.pravatar.cc/150?img=21", completedTrainingsCount: 1 });
+  await addSport(zofia.id, { activityName: "Climbing", level: "intermediate", slots: [{ dayOfWeek: 6, startTime: "10:00", endTime: "13:00" }, { dayOfWeek: 0, startTime: "10:00", endTime: "13:00" }] });
+  await addSport(zofia.id, { activityName: "Hiking", level: "beginner", slots: [{ dayOfWeek: 0, startTime: "09:00", endTime: "13:00" }] });
+  await addSport(zofia.id, { activityName: "Cycling", level: "beginner", slots: [{ dayOfWeek: 6, startTime: "09:00", endTime: "11:00" }] });
+
+  const radoslaw = await createUser({ email: "radoslaw@example.com", displayName: "Radosław", dateOfBirth: "1991-01-17", photoUrl: "https://i.pravatar.cc/150?img=23", completedTrainingsCount: 2 });
+  await addSport(radoslaw.id, { activityName: "Squash", level: "intermediate", slots: [{ dayOfWeek: 1, startTime: "19:00", endTime: "21:00" }, { dayOfWeek: 3, startTime: "19:00", endTime: "21:00" }] });
+  await addSport(radoslaw.id, { activityName: "Table Tennis", level: "advanced", slots: [{ dayOfWeek: 2, startTime: "19:00", endTime: "21:00" }, { dayOfWeek: 4, startTime: "19:00", endTime: "21:00" }] });
+  await addSport(radoslaw.id, { activityName: "Badminton", level: "advanced", slots: [{ dayOfWeek: 5, startTime: "18:00", endTime: "20:00" }] });
+
+  // ---------------------------------------------------------------------
+  // Step 4: 3 communities, each with members, a club event + RSVPs, and a
+  // pinned/unpinned feed post.
+  // ---------------------------------------------------------------------
+  async function seedCommunity(opts: {
+    name: string;
+    activityName: string;
+    photoUrl: string;
+    description: string;
+    organiser: { id: string };
+    members: { id: string }[];
+    event: { title: string; scheduledAt: Date; locationText: string; isRecurring: boolean; recurrenceRule?: string; rsvps: { userId: string; status: "going" | "not_going" }[] };
+    post: { authorId: string; body: string; isPinned: boolean; createdAt: Date };
+  }) {
+    const existing = await prisma.community.findFirst({ where: { name: opts.name } });
+    if (existing) return existing;
+
+    const activity = await prisma.activity.findUniqueOrThrow({ where: { id: slug(opts.activityName) } });
+    const community = await prisma.community.create({
+      data: {
+        name: opts.name,
+        activityId: activity.id,
+        photoUrl: opts.photoUrl,
+        description: opts.description,
+        creatorId: opts.organiser.id,
+        members: {
+          create: [
+            { userId: opts.organiser.id, role: "organiser" },
+            ...opts.members.map((m) => ({ userId: m.id, role: "member" as const })),
+          ],
+        },
+      },
+    });
+
+    const event = await prisma.clubEvent.create({
+      data: {
+        communityId: community.id,
+        createdBy: opts.organiser.id,
+        title: opts.event.title,
+        scheduledAt: opts.event.scheduledAt,
+        locationText: opts.event.locationText,
+        isRecurring: opts.event.isRecurring,
+        recurrenceRule: opts.event.recurrenceRule,
+      },
+    });
+    await prisma.clubEventRsvp.createMany({
+      data: opts.event.rsvps.map((r) => ({ eventId: event.id, userId: r.userId, status: r.status })),
+    });
+
+    await prisma.communityPost.create({
+      data: {
+        communityId: community.id,
+        authorId: opts.post.authorId,
+        body: opts.post.body,
+        isPinned: opts.post.isPinned,
+        createdAt: opts.post.createdAt,
+      },
+    });
+
+    return community;
+  }
+
+  await seedCommunity({
+    name: "Warsaw Tennis Club",
+    activityName: "Tennis",
+    photoUrl: "https://images.unsplash.com/photo-1554068865-24cecd4e34b8?w=200",
+    description: "Weekly tennis sessions for all levels in Warsaw. Join us every Monday, Wednesday, and Friday!",
+    organiser: marcin,
+    members: [alice, bob, karolina, natalia],
+    event: {
+      title: "Sunday Open Tennis",
+      scheduledAt: nextWeekday(0, 10, 0),
+      locationText: "Moczydło Park Tennis Courts, Warsaw",
+      isRecurring: true,
+      recurrenceRule: "WEEKLY",
+      rsvps: [
+        { userId: marcin.id, status: "going" },
+        { userId: alice.id, status: "going" },
+        { userId: bob.id, status: "going" },
+        { userId: karolina.id, status: "not_going" },
+        { userId: natalia.id, status: "going" },
+      ],
+    },
+    post: {
+      authorId: marcin.id,
+      body: "Welcome to Warsaw Tennis Club! 🎾 We meet every week for friendly matches. All levels welcome. See you on Sunday!",
+      isPinned: true,
+      createdAt: daysAgo(7),
+    },
+  });
+
+  await seedCommunity({
+    name: "Warsaw Dance Collective",
+    activityName: "Dancing",
+    photoUrl: "https://images.unsplash.com/photo-1547153760-18fc86324498?w=200",
+    description: "A community for dance lovers in Warsaw. We practice together, share tips, and organize social dance events.",
+    organiser: ewa,
+    members: [alice, karolina, marta, zofia],
+    event: {
+      title: "Tuesday Dance Practice",
+      scheduledAt: nextWeekday(2, 19, 0),
+      locationText: "Studio Tańca Centrum, Warsaw",
+      isRecurring: true,
+      recurrenceRule: "WEEKLY",
+      rsvps: [
+        { userId: ewa.id, status: "going" },
+        { userId: alice.id, status: "going" },
+        { userId: karolina.id, status: "going" },
+        { userId: marta.id, status: "going" },
+        { userId: zofia.id, status: "not_going" },
+      ],
+    },
+    post: {
+      authorId: ewa.id,
+      body: "Hey dancers! 💃 Our next session is on Tuesday. We'll be working on salsa basics. Beginners very welcome — no experience needed!",
+      isPinned: true,
+      createdAt: daysAgo(5),
+    },
+  });
+
+  await seedCommunity({
+    name: "Warsaw Ballers",
+    activityName: "Basketball",
+    photoUrl: "https://images.unsplash.com/photo-1546519638-68e109498ffc?w=200",
+    description: "Pickup basketball in Warsaw. Casual games, all skill levels. We play hard but keep it fun.",
+    organiser: krzysztof,
+    members: [piotr, tomasz, marcin, radoslaw],
+    event: {
+      title: "Friday Pickup Game",
+      scheduledAt: nextWeekday(5, 18, 0),
+      locationText: "Saska Kępa Basketball Court, Warsaw",
+      isRecurring: false,
+      rsvps: [
+        { userId: krzysztof.id, status: "going" },
+        { userId: piotr.id, status: "going" },
+        { userId: tomasz.id, status: "going" },
+        { userId: marcin.id, status: "going" },
+        { userId: radoslaw.id, status: "going" },
+      ],
+    },
+    post: {
+      authorId: krzysztof.id,
+      body: "Friday game is ON. 🏀 5 vs 5 if everyone shows up. Bring water and good energy. See you at 6pm!",
+      isPinned: false,
+      createdAt: daysAgo(2),
+    },
+  });
+
+  console.log(`Seeded ${ACTIVITIES.length} activities, Alice & Bob, 10 additional users, and 3 communities (password: password123)`);
 }
 
 main()

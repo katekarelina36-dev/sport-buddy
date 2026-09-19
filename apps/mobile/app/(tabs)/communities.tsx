@@ -10,8 +10,9 @@ import { colors, radii, spacing, shadow, typography } from "../../src/theme";
 import type { CommunitySummary } from "../../src/api/types";
 
 // Communities — full read-write feature (F15 was a read-only stub). List of
-// all communities, client-side filtered by name as the user types; a
-// floating "Create Community" button is locked until 3 completed Events.
+// all communities, client-side filtered by name as the user types; a fixed
+// bottom "Create Community" bar is locked until 3 completed Events (Round 8,
+// Bug 1 — previously a floating button awkwardly mid-screen).
 export default function CommunitiesListScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -56,7 +57,7 @@ export default function CommunitiesListScreen() {
       <FlatList
         data={filtered}
         keyExtractor={(c) => c.id}
-        contentContainerStyle={{ padding: spacing.lg, gap: spacing.sm, paddingBottom: 120 }}
+        contentContainerStyle={{ padding: spacing.lg, gap: spacing.sm, paddingBottom: 80 }}
         ListEmptyComponent={<Text style={styles.empty}>No communities yet — be the first to create one.</Text>}
         renderItem={({ item }) => (
           <Pressable style={styles.card} onPress={() => router.push(`/communities/${item.id}`)}>
@@ -75,12 +76,11 @@ export default function CommunitiesListScreen() {
         )}
       />
 
-      <Pressable
-        style={[styles.fab, { bottom: insets.bottom + 56 + spacing.md }, unlocked ? styles.fabActive : styles.fabLocked]}
-        onPress={tapCreate}
-      >
-        <Text style={[styles.fabLabel, !unlocked && styles.fabLabelLocked]}>+ Create Community</Text>
-      </Pressable>
+      <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 12 }]}>
+        <Pressable style={[styles.createButton, unlocked ? styles.createButtonActive : styles.createButtonLocked]} onPress={tapCreate}>
+          <Text style={[styles.createButtonLabel, !unlocked && styles.createButtonLabelLocked]}>+ Create Community</Text>
+        </Pressable>
+      </View>
 
       <Toast message={toastMessage} onHide={() => setToastMessage(null)} />
     </View>
@@ -113,17 +113,20 @@ const styles = StyleSheet.create({
   memberCount: { fontFamily: typography.fontFamilyRegular, fontSize: 13, color: colors.muted, marginTop: 4 },
   chevron: { fontSize: 20, color: "#94A3B8", marginLeft: spacing.sm },
   empty: { fontFamily: typography.fontFamilyRegular, color: colors.muted, textAlign: "center", marginTop: spacing.xl },
-  fab: {
+  bottomBar: {
     position: "absolute",
-    right: spacing.md,
-    height: 48,
-    paddingHorizontal: 20,
-    borderRadius: 24,
-    alignItems: "center",
-    justifyContent: "center",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: colors.white,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingHorizontal: spacing.md,
+    paddingTop: 12,
   },
-  fabActive: { backgroundColor: colors.coral, ...shadow, elevation: 4 },
-  fabLocked: { backgroundColor: colors.border },
-  fabLabel: { fontFamily: typography.fontFamilyBold, fontSize: 15, color: colors.white },
-  fabLabelLocked: { color: "#94A3B8" },
+  createButton: { height: 52, borderRadius: 24, alignItems: "center", justifyContent: "center" },
+  createButtonActive: { backgroundColor: colors.coral },
+  createButtonLocked: { backgroundColor: "#E2E8F0" },
+  createButtonLabel: { fontFamily: typography.fontFamilyBold, fontSize: 15, color: colors.white },
+  createButtonLabelLocked: { color: "#94A3B8" },
 });

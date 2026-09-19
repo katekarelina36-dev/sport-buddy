@@ -1,35 +1,51 @@
-import { useEffect, useMemo, useState } from "react";
-import { View, Text, FlatList, TextInput, StyleSheet } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { View, Text, FlatList, TextInput, Pressable, StyleSheet, Keyboard } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../../src/api/client";
 import { ActivityCard } from "../../src/components/ActivityCard";
+import { ActivityIcon } from "../../src/components/icons/ActivityIcon";
 import { EXPLORE_ACTIVITIES, ACTIVITY_IMAGES, ACTIVITY_PLACEHOLDER_TINT } from "../../src/constants/exploreActivities";
-import { colors, spacing, typography } from "../../src/theme";
+import { colors, spacing, typography, radii } from "../../src/theme";
 import type { Activity } from "../../src/api/types";
 
-// Explore Activity screen (Round 3 card redesign): full-width photo rows
-// instead of a 3-column icon grid, scoped down to a fixed six-sport list
-// (name-matched against whatever the API returns, in a fixed display order)
-// with a live text filter above it. Tap behavior is unchanged — still routes
-// into the F3 feed pre-filtered by that activity.
+// Explore Activity screen (Round 3 card redesign): full-width photo rows for
+// a fixed six-sport shortlist. Round 8, Bug 3: since the shortlist alone
+// can't reach the other 19 sports in the catalog, the search field above it
+// is an autocomplete over the FULL catalog (not just the six cards) — typing
+// opens a dropdown, tapping a result jumps straight into that sport's feed;
+// the card list just dims while the dropdown is open, it isn't itself
+// filtered by the query.
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [activities, setActivities] = useState<Activity[]>([]);
   const [query, setQuery] = useState("");
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     api.get<Activity[]>("/activities").then(setActivities);
   }, []);
 
-  const items = useMemo(() => {
-    const byName = new Map(activities.map((a) => [a.name, a]));
-    const q = query.trim().toLowerCase();
-    return EXPLORE_ACTIVITIES.map((name) => byName.get(name)).filter(
-      (a): a is Activity => a !== undefined && a.name.toLowerCase().includes(q)
-    );
-  }, [activities, query]);
+  const byName = new Map(activities.map((a) => [a.name, a]));
+  const cards = EXPLORE_ACTIVITIES.map((name) => byName.get(name)).filter((a): a is Activity => a !== undefined);
+
+  const q = query.trim().toLowerCase();
+  const matches = q.length > 0 ? activities.filter((a) => a.name.toLowerCase().includes(q)).slice(0, 5) : [];
+
+  function goToFeed(activity: Activity) {
+    setQuery("");
+    setDropdownOpen(false);
+    inputRef.current?.blur();
+    Keyboard.dismiss();
+    router.push({ pathname: "/feed/[activityId]", params: { activityId: activity.id, sportName: activity.name } });
+  }
+
+  function clearQuery() {
+    setQuery("");
+    setDropdownOpen(false);
+  }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -38,31 +54,74 @@ export default function HomeScreen() {
       <View style={styles.searchWrap}>
         <Text style={styles.searchIcon}>🔍</Text>
         <TextInput
+          ref={inputRef}
           style={styles.searchInput}
-          placeholder="Search activity"
+          placeholder="Search activities..."
           placeholderTextColor={colors.muted}
           value={query}
-          onChangeText={setQuery}
+          onChangeText={(text) => {
+            setQuery(text);
+            setDropdownOpen(text.trim().length > 0);
+          }}
+          onFocus={() => setDropdownOpen(query.trim().length > 0)}
+          onBlur={() => setTimeout(() => setDropdownOpen(false), 150)}
           autoCapitalize="none"
         />
+        {query.length > 0 && (
+          <Pressable accessibilityLabel="Clear search" style={styles.clearButton} onPress={clearQuery}>
+            <Text style={styles.clearButtonIcon}>×</Text>
+          </Pressable>
+        )}
       </View>
 
-      <FlatList
-        data={items}
-        keyExtractor={(a) => a.id}
-        contentContainerStyle={styles.listContent}
-        ListEmptyComponent={<Text style={styles.empty}>No activities match "{query}"</Text>}
-        renderItem={({ item, index }) => (
-          <ActivityCard
-            name={item.name}
-            image={ACTIVITY_IMAGES[item.name as (typeof EXPLORE_ACTIVITIES)[number]]}
-            tint={ACTIVITY_PLACEHOLDER_TINT[item.name as (typeof EXPLORE_ACTIVITIES)[number]] ?? colors.border}
-            roundedTop={index === 0}
-            onPress={() => router.push({ pathname: "/feed/[activityId]", params: { activityId: item.id, sportName: item.name } })}
+      {dropdownOpen && matches.length > 0 && (
+        <View style={styles.dropdown}>
+          <FlatList
+            data={matches}
+            keyExtractor={(a) => a.id}
+            nestedScrollEnabled
+            renderItem={({ item, index }) => (
+              <Pressable
+                style={[styles.dropdownRow, index === matches.length - 1 && styles.dropdownRowLast]}
+                onPress={() => goToFeed(item)}
+              >
+                <ActivityIcon name={item.name} size={20} />
+                <HighlightedLabel text={item.name} query={query.trim()} />
+              </Pressable>
+            )}
           />
-        )}
-      />
+        </View>
+      )}
+
+      <View style={dropdownOpen && matches.length > 0 ? styles.dimmed : undefined}>
+        <FlatList
+          data={cards}
+          keyExtractor={(a) => a.id}
+          contentContainerStyle={styles.listContent}
+          renderItem={({ item, index }) => (
+            <ActivityCard
+              name={item.name}
+              image={ACTIVITY_IMAGES[item.name as (typeof EXPLORE_ACTIVITIES)[number]]}
+              tint={ACTIVITY_PLACEHOLDER_TINT[item.name as (typeof EXPLORE_ACTIVITIES)[number]] ?? colors.border}
+              roundedTop={index === 0}
+              onPress={() => goToFeed(item)}
+            />
+          )}
+        />
+      </View>
     </View>
+  );
+}
+
+function HighlightedLabel({ text, query }: { text: string; query: string }) {
+  const index = text.toLowerCase().indexOf(query.toLowerCase());
+  if (index === -1 || !query) return <Text style={styles.dropdownRowLabel}>{text}</Text>;
+  return (
+    <Text style={styles.dropdownRowLabel}>
+      {text.slice(0, index)}
+      <Text style={styles.dropdownRowLabelMatch}>{text.slice(index, index + query.length)}</Text>
+      {text.slice(index + query.length)}
+    </Text>
   );
 }
 
@@ -81,8 +140,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     backgroundColor: colors.white,
   },
-  searchIcon: { fontSize: 14, marginRight: spacing.xs },
+  searchIcon: { fontSize: 14, marginRight: spacing.xs, color: "#94A3B8" },
   searchInput: { flex: 1, fontFamily: typography.fontFamilyRegular, fontSize: 14, color: colors.charcoal },
+  clearButton: { width: 44, height: 44, marginRight: -14, alignItems: "center", justifyContent: "center" },
+  clearButtonIcon: { fontSize: 18, color: "#94A3B8" },
+  dropdown: {
+    marginHorizontal: spacing.lg,
+    marginTop: 4,
+    maxHeight: 5 * 44,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.sm,
+    overflow: "hidden",
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    zIndex: 10,
+  },
+  dropdownRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, height: 44, paddingHorizontal: spacing.md, borderBottomWidth: 1, borderBottomColor: "#F1F5F9" },
+  dropdownRowLast: { borderBottomWidth: 0 },
+  dropdownRowLabel: { fontFamily: typography.fontFamilyRegular, fontSize: 15, color: colors.charcoal },
+  dropdownRowLabelMatch: { fontFamily: typography.fontFamilyBold, color: colors.coral },
+  dimmed: { opacity: 0.4 },
   listContent: { paddingTop: spacing.md, paddingBottom: spacing.xl },
-  empty: { fontFamily: typography.fontFamilyRegular, color: colors.muted, textAlign: "center", marginTop: spacing.xl },
 });
