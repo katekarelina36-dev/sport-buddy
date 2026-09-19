@@ -124,4 +124,6 @@ export interface TrainingSession {
   isRecurring: boolean;
   completedByUserA: boolean;
   completedByUserB: boolean;
+  wouldPlayAgainA: boolean | null;
+  wouldPlayAgainB: boolean | null;
 }

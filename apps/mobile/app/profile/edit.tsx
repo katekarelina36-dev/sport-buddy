@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, Text, TextInput, StyleSheet, Pressable, ScrollView, Alert } from "react-native";
+import { View, Text, TextInput, StyleSheet, Pressable, ScrollView, Alert, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { Button } from "../../src/components/Button";
@@ -60,32 +60,35 @@ export default function EditProfileScreen() {
   }
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
-      <Pressable style={styles.photoRow} onPress={pickPhoto} disabled={uploadingPhoto}>
-        <Avatar photoUrl={photoUrl} size={88} />
-        <Text style={styles.changePhotoLabel}>{uploadingPhoto ? "Uploading…" : "Change photo"}</Text>
-      </Pressable>
+    <View style={styles.screen}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.container}>
+        <Pressable style={styles.photoRow} onPress={pickPhoto} disabled={uploadingPhoto}>
+          <Avatar photoUrl={photoUrl} size={88} />
+          <Text style={styles.changePhotoLabel}>{uploadingPhoto ? "Uploading…" : "Change photo"}</Text>
+        </Pressable>
 
-      <Text style={styles.label}>Name</Text>
-      <TextInput style={styles.input} value={displayName} onChangeText={setDisplayName} placeholder="Display name" />
+        <Text style={styles.label}>Name</Text>
+        <TextInput style={styles.input} value={displayName} onChangeText={setDisplayName} placeholder="Display name" />
 
-      <Text style={styles.label}>City</Text>
-      <TextInput style={styles.input} value={city} onChangeText={setCity} placeholder="Your city" />
+        <Text style={styles.label}>City</Text>
+        <TextInput style={styles.input} value={city} onChangeText={setCity} placeholder="Your city" />
 
-      <Text style={styles.label}>Bio</Text>
-      <TextInput style={[styles.input, styles.multiline]} value={bio} onChangeText={setBio} placeholder="Intro bio" multiline />
+        <Text style={styles.label}>Bio</Text>
+        <TextInput style={[styles.input, styles.multiline]} value={bio} onChangeText={setBio} placeholder="Intro bio" multiline />
+      </ScrollView>
 
-      <View style={styles.actions}>
+      {/* Bug fix batch 2, Bug 4: primary CTAs fixed outside the ScrollView. */}
+      <View style={styles.footer}>
         <Button label={saving ? "Saving…" : "Save"} onPress={save} disabled={saving} />
         <Button label="Cancel" variant="outline" onPress={() => router.back()} />
       </View>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.offWhite },
-  container: { padding: spacing.lg, gap: spacing.sm, paddingBottom: spacing.xl },
+  container: { padding: spacing.lg, gap: spacing.sm, paddingBottom: 80 },
   photoRow: { alignItems: "center", gap: spacing.sm, marginBottom: spacing.md },
   changePhotoLabel: { fontFamily: typography.fontFamily, color: colors.coral, fontSize: 13 },
   label: { fontFamily: typography.fontFamily, color: colors.sageDark, marginTop: spacing.sm },
@@ -99,5 +102,13 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamilyRegular,
   },
   multiline: { minHeight: 90, paddingTop: spacing.sm, textAlignVertical: "top" },
-  actions: { gap: spacing.sm, marginTop: spacing.lg },
+  footer: {
+    gap: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.offWhite,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: Platform.OS === "ios" ? spacing.xl : spacing.md,
+  },
 });

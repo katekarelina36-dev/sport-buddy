@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView, Modal, Alert } from "react-native";
+import { View, Text, StyleSheet, Pressable, ScrollView, Modal, Alert, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import { api } from "../../src/api/client";
 import { useAuth } from "../../src/hooks/useAuth";
@@ -129,14 +129,10 @@ export default function PreferredActivitiesScreen() {
           <Text style={styles.headerButtonLeft}>Cancel</Text>
         </Pressable>
         <Text style={styles.headerTitle}>Preferred Activities</Text>
-        <Pressable onPress={save} disabled={!hasChanges || saving}>
-          <Text style={[styles.headerButtonRight, (!hasChanges || saving) && styles.headerButtonDisabled]}>
-            {saving ? "Saving…" : "Save"}
-          </Text>
-        </Pressable>
+        <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
         {Object.values(sports).map((sport) => (
           <SportAvailabilityCard
             key={sport.activityId}
@@ -154,6 +150,14 @@ export default function PreferredActivitiesScreen() {
           <Text style={styles.addButtonLabel}>+ Add Sport</Text>
         </Pressable>
       </ScrollView>
+
+      {/* Bug fix batch 2, Bug 4: primary CTA must be a fixed footer, never
+          inside the ScrollView, so it can't be scrolled out of reach. */}
+      <View style={styles.footer}>
+        <Pressable style={[styles.saveButton, (!hasChanges || saving) && styles.saveButtonDisabled]} disabled={!hasChanges || saving} onPress={save}>
+          <Text style={[styles.saveButtonLabel, (!hasChanges || saving) && styles.saveButtonLabelDisabled]}>{saving ? "Saving…" : "Save"}</Text>
+        </Pressable>
+      </View>
 
       <Modal visible={pickerOpen} animationType="slide" transparent onRequestClose={() => setPickerOpen(false)}>
         <Pressable style={styles.backdrop} onPress={() => setPickerOpen(false)} />
@@ -177,12 +181,23 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.offWhite },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", height: 56, paddingHorizontal: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
   headerButtonLeft: { fontFamily: typography.fontFamily, fontSize: 15, color: colors.coral },
-  headerButtonRight: { fontFamily: typography.fontFamily, fontSize: 15, color: colors.coral },
-  headerButtonDisabled: { opacity: 0.4 },
+  headerSpacer: { width: 44 },
   headerTitle: { fontFamily: typography.fontFamilyBold, fontSize: 17, color: colors.charcoal },
-  content: { padding: spacing.lg, gap: spacing.sm },
+  content: { padding: spacing.lg, paddingBottom: 80, gap: spacing.sm },
   addButton: { height: 52, borderRadius: radii.sm, borderWidth: 1.5, borderColor: colors.border, borderStyle: "dashed", alignItems: "center", justifyContent: "center", marginTop: spacing.md },
   addButtonLabel: { fontFamily: typography.fontFamily, fontSize: 15, color: colors.coral },
+  footer: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.white,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: Platform.OS === "ios" ? spacing.xl : spacing.md,
+  },
+  saveButton: { height: 52, borderRadius: radii.lg, backgroundColor: colors.coral, alignItems: "center", justifyContent: "center" },
+  saveButtonDisabled: { backgroundColor: colors.border },
+  saveButtonLabel: { fontFamily: typography.fontFamilyBold, fontSize: 16, color: colors.white },
+  saveButtonLabelDisabled: { color: "#94A3B8" },
   backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.3)" },
   sheet: { backgroundColor: colors.white, borderTopLeftRadius: radii.lg, borderTopRightRadius: radii.lg, padding: spacing.lg, maxHeight: "70%" },
   handle: { width: 32, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: "center", marginBottom: spacing.sm },
