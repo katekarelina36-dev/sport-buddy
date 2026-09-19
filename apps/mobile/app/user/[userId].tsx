@@ -89,7 +89,7 @@ export default function UserProfileScreen() {
             <View style={styles.sportHeaderRow}>
               <Text style={styles.sportIcon}>🏅</Text>
               <Text style={styles.sportName}>{primaryActivity.activity.name}</Text>
-              <Badge label={primaryActivity.level} />
+              <Badge label={primaryActivity.level} tone="neutral" />
             </View>
             <View style={{ marginTop: spacing.md }}>
               <WeeklyAvailabilityWidget slots={primarySlots} variant="view" />
@@ -104,7 +104,7 @@ export default function UserProfileScreen() {
               <View key={a.activityId} style={styles.otherSportRow}>
                 <Text style={styles.sportIconSmall}>🏅</Text>
                 <Text style={styles.otherSportName}>{a.activity.name}</Text>
-                <Badge label={a.level} />
+                <Badge label={a.level} tone="neutral" />
               </View>
             ))}
           </>

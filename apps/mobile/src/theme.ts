@@ -14,6 +14,8 @@ export const colors = {
   glassGlow: "#FF8800",
   glassPrimaryText: "#04001D",
   glassPrimaryTint: "#1907A7",
+  chipNeutralBg: "#E0DFE5",
+  chipNeutralText: "#04001D",
 };
 
 export const radii = {
