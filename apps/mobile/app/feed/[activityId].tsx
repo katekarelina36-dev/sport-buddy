@@ -137,7 +137,7 @@ export default function FeedScreen() {
         }}
       />
       <View style={styles.footer}>
-        <Button label="Couldn't find a match?" variant="secondary" onPress={() => router.push({ pathname: "/availability", params: { mode: "waitlist", activityId } })} />
+        <Button label="Couldn't find a match?" variant="glass" onPress={() => router.push({ pathname: "/availability", params: { mode: "waitlist", activityId } })} />
       </View>
 
       <FilterSheet visible={filterOpen} value={filter} onApply={setFilter} onClose={() => setFilterOpen(false)} />
