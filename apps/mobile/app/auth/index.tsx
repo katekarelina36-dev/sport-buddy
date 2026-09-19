@@ -1,9 +1,15 @@
 import { useState } from "react";
 import { View, Text, TextInput, StyleSheet, Alert } from "react-native";
+import { Image } from "expo-image";
 import { Button } from "../../src/components/Button";
-import { LoginArt } from "../../src/components/icons/LoginArt";
 import { colors, spacing, typography, radii, topInset } from "../../src/theme";
 import { useAuth } from "../../src/hooks/useAuth";
+
+const loginBg = require("../../assets/login-bg.webp");
+// Focal point is the handshake, roughly centered horizontally and just
+// below the net vertically in the source photo — keep it in frame across
+// every device aspect ratio instead of a naive center-crop.
+const LOGIN_BG_FOCAL_POINT = { top: "68%", left: "50%" } as const;
 
 export default function AuthScreen() {
   const { login, register } = useAuth();
@@ -26,9 +32,13 @@ export default function AuthScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.artBackground} pointerEvents="none">
-        <LoginArt />
-      </View>
+      <Image
+        source={loginBg}
+        style={styles.artBackground}
+        contentFit="cover"
+        contentPosition={LOGIN_BG_FOCAL_POINT}
+        pointerEvents="none"
+      />
 
       <Text style={styles.title}>Sport Buddy</Text>
       <Text style={styles.subtitle}>Find a sport partner in a couple of clicks.</Text>
@@ -68,7 +78,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    opacity: 0.08,
   },
   title: { fontFamily: typography.fontFamilyBold, fontSize: 32, color: colors.charcoal, textAlign: "center" },
   subtitle: { fontFamily: typography.fontFamilyRegular, color: colors.muted, textAlign: "center", marginBottom: spacing.lg },
