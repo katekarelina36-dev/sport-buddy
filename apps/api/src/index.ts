@@ -1,7 +1,13 @@
 import express from "express";
+// Patches Express's router so a rejected/thrown promise inside an async route
+// handler is forwarded to the error middleware below, instead of becoming an
+// uncaught exception that crashes the whole process. Must be imported before
+// any router (route files) are imported.
+import "express-async-errors";
 import cors from "cors";
 import http from "node:http";
 import { Server } from "socket.io";
+import { Prisma } from "@prisma/client";
 import { env } from "./lib/env.js";
 import { authRouter } from "./routes/auth.js";
 import { profileRouter } from "./routes/profile.js";
@@ -37,6 +43,19 @@ app.use("/training", trainingRouter);
 app.use("/communities", communitiesRouter);
 app.use("/notifications", notificationsRouter);
 app.use("/users", usersRouter);
+
+// A stale/valid JWT for a User that no longer exists (e.g. a dev DB reset) —
+// or any other Prisma "record not found" — is a client problem, not a server
+// crash: 404 (or 401 for the deleted-account case) instead of taking the
+// whole API down. Registered last, after every route.
+app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2025") {
+    res.status(401).json({ error: "Your session refers to an account that no longer exists — please log in again." });
+    return;
+  }
+  console.error(err);
+  res.status(500).json({ error: "Internal server error" });
+});
 
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
