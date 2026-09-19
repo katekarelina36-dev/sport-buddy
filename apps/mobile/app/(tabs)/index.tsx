@@ -29,7 +29,10 @@ export default function HomeScreen() {
         columnWrapperStyle={{ gap: spacing.sm }}
         contentContainerStyle={{ gap: spacing.sm, paddingBottom: spacing.xl, paddingTop: spacing.md }}
         renderItem={({ item }) => (
-          <Pressable style={styles.card} onPress={() => router.push(`/feed/${item.id}`)}>
+          <Pressable
+            style={styles.card}
+            onPress={() => router.push({ pathname: "/feed/[activityId]", params: { activityId: item.id, sportName: item.name } })}
+          >
             <ActivityIcon name={item.name} size={40} />
             <Text style={styles.label} numberOfLines={2}>
               {item.name}

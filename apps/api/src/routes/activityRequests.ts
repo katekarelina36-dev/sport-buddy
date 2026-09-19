@@ -69,6 +69,19 @@ function recipientId(request: { post: { authorId: string } | null; targetUserId:
   return request.post?.authorId ?? request.targetUserId!;
 }
 
+// Round 7, Fix 3: the requester's selected day+time (F7) already IS the
+// concrete slot to auto-schedule on approval — reused instead of adding a
+// separate requestedDate/requestedTime pair, since it's the same information.
+function nextOccurrence(dayOfWeek: number, startTime: string): Date {
+  const [hours, minutes] = startTime.split(":").map(Number);
+  const result = new Date();
+  result.setHours(hours, minutes, 0, 0);
+  let daysUntil = (dayOfWeek - result.getDay() + 7) % 7;
+  if (daysUntil === 0 && result.getTime() <= Date.now()) daysUntil = 7;
+  result.setDate(result.getDate() + daysUntil);
+  return result;
+}
+
 // Bug fix batch 3, section 7: pending-count badge, pushed to the recipient's
 // socket room in real time and available here as the poll/on-open fallback.
 async function pendingCountFor(userId: string): Promise<number> {
@@ -133,7 +146,7 @@ activityRequestsRouter.get("/sent", async (req: AuthedRequest, res) => {
 activityRequestsRouter.post("/:id/approve", async (req: AuthedRequest, res) => {
   const request = await prisma.activityRequest.findUniqueOrThrow({
     where: { id: req.params.id },
-    include: { post: true },
+    include: { post: true, activity: true },
   });
   if (recipientId(request) !== req.userId) {
     res.status(403).json({ error: "Not the request recipient" });
@@ -163,7 +176,7 @@ activityRequestsRouter.post("/:id/approve", async (req: AuthedRequest, res) => {
   // Bug fix batch 3, section 1: exactly one chat per pair — a second sport
   // between the same two people adds a ChatSport row to that same chat
   // instead of creating a new thread.
-  const chat = await prisma.$transaction(async (tx) => {
+  const { chat, autoScheduled } = await prisma.$transaction(async (tx) => {
     await tx.activityRequest.update({ where: { id: request.id }, data: { status: "approved", decidedAt: new Date() } });
 
     if (request.postId && request.slotId) {
@@ -175,30 +188,71 @@ activityRequestsRouter.post("/:id/approve", async (req: AuthedRequest, res) => {
     }
 
     const existingChat = await tx.chat.findUnique({ where: { userAId_userBId: { userAId, userBId } } });
-    if (existingChat) {
-      await tx.chatSport.upsert({
-        where: { chatId_activityId: { chatId: existingChat.id, activityId: request.activityId } },
-        update: {},
-        create: { chatId: existingChat.id, activityId: request.activityId, activityRequestId: request.id },
+    const chat = existingChat
+      ? await (async () => {
+          await tx.chatSport.upsert({
+            where: { chatId_activityId: { chatId: existingChat.id, activityId: request.activityId } },
+            update: {},
+            create: { chatId: existingChat.id, activityId: request.activityId, activityRequestId: request.id },
+          });
+          return tx.chat.update({ where: { id: existingChat.id }, data: { isClosed: false } });
+        })()
+      : await tx.chat.create({
+          data: {
+            userAId,
+            userBId,
+            originatingRequestId: request.id,
+            sports: { create: { activityId: request.activityId, activityRequestId: request.id } },
+            messages: {
+              create: {
+                type: "template",
+                body: "Hey! I think we can do this activity together — which time would you prefer?",
+              },
+            },
+          },
+        });
+
+    // Round 7, Fix 3: the request already carries a specific day+time (F7) —
+    // auto-create the Event on approval instead of leaving the chat with
+    // nothing scheduled, unless this sport is already scheduled in this chat.
+    let autoScheduled: { scheduledAt: Date; isFirst: boolean } | null = null;
+    if (request.selectedDayOfWeek != null && request.selectedStartTime) {
+      const alreadyScheduled = await tx.trainingSession.findFirst({
+        where: { chatId: chat.id, activityId: request.activityId, status: "scheduled" },
       });
-      return tx.chat.update({ where: { id: existingChat.id }, data: { isClosed: false } });
+      if (!alreadyScheduled) {
+        const priorCompleted = await tx.trainingSession.findFirst({ where: { chatId: chat.id, status: "completed" } });
+        const scheduledAt = nextOccurrence(request.selectedDayOfWeek, request.selectedStartTime);
+        await tx.trainingSession.create({
+          data: {
+            chatId: chat.id,
+            hostId: recipientId(request),
+            participantId: request.requesterId,
+            activityId: request.activityId,
+            scheduledAt,
+            isFirstBetweenUsers: !priorCompleted,
+          },
+        });
+        autoScheduled = { scheduledAt, isFirst: !priorCompleted };
+      }
     }
 
-    return tx.chat.create({
+    return { chat, autoScheduled };
+  });
+
+  if (autoScheduled) {
+    const weekday = autoScheduled.scheduledAt.toLocaleDateString([], { weekday: "long" });
+    const dateLabel = autoScheduled.scheduledAt.toLocaleDateString([], { day: "numeric", month: "short" });
+    const timeLabel = autoScheduled.scheduledAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const lead = autoScheduled.isFirst ? "your first" : "a";
+    await prisma.message.create({
       data: {
-        userAId,
-        userBId,
-        originatingRequestId: request.id,
-        sports: { create: { activityId: request.activityId, activityRequestId: request.id } },
-        messages: {
-          create: {
-            type: "template",
-            body: "Hey! I think we can do this activity together — which time would you prefer?",
-          },
-        },
+        chatId: chat.id,
+        type: "system",
+        body: `You've scheduled ${lead} ${request.activity.name} session! 🎾 ${weekday} ${dateLabel} · ${timeLabel}`,
       },
     });
-  });
+  }
 
   notify(request.requesterId, "activity_request_approved", { message: "Your activity request was approved!" }, `/chat/${chat.id}`);
   broadcastPendingCount(req.userId!);

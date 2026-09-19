@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { View, Text, FlatList, StyleSheet, Pressable, ActivityIndicator } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../../src/api/client";
 import { Card } from "../../src/components/Card";
@@ -21,7 +21,7 @@ const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 // "Send Activity Request" opens the F7 bottom sheet instead of sending
 // instantly, so the requester can pick a specific day+time first.
 export default function FeedScreen() {
-  const { activityId } = useLocalSearchParams<{ activityId: string }>();
+  const { activityId, sportName } = useLocalSearchParams<{ activityId: string; sportName?: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [entries, setEntries] = useState<DiscoverEntry[]>([]);
@@ -61,6 +61,7 @@ export default function FeedScreen() {
 
   return (
     <View style={styles.container}>
+      <Stack.Screen options={{ title: sportName ?? "Explore" }} />
       <View style={styles.filterRow}>
         <Pressable style={[styles.chip, activeFilterCount > 0 && styles.chipActive]} onPress={() => setFilterOpen(true)}>
           <Text style={[styles.chipLabel, activeFilterCount > 0 && styles.chipLabelActive]}>
@@ -83,7 +84,6 @@ export default function FeedScreen() {
         renderItem={({ item }) => {
           const { user, primaryActivity } = item;
           const age = user.profile?.dateOfBirth ? calculateAge(user.profile.dateOfBirth) : null;
-          const otherSports = user.activities.filter((a) => a.activityId !== primaryActivity.activityId);
           const slots = user.availability.filter((s) => s.dayOfWeek !== undefined).slice(0, 2);
           const requested = requestedIds.has(user.id);
 
@@ -107,19 +107,6 @@ export default function FeedScreen() {
                   <Text style={styles.availability}>
                     🗓 {slots.map((s) => `${DAY_NAMES[s.dayOfWeek!]} ${s.startTime}–${s.endTime}`).join("  ·  ")}
                   </Text>
-                )}
-
-                {otherSports.length > 0 && (
-                  <View>
-                    <Text style={styles.alsoPlaysLabel}>Also plays:</Text>
-                    <View style={styles.chipRowSmall}>
-                      {otherSports.map((a) => (
-                        <View key={a.activityId} style={styles.smallChip}>
-                          <Text style={styles.smallChipLabel}>{a.activity.name}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  </View>
                 )}
 
                 <View style={styles.divider} />
@@ -174,10 +161,6 @@ const styles = StyleSheet.create({
   subtitle: { fontFamily: typography.fontFamilyRegular, fontSize: 13, color: colors.muted, marginTop: 2 },
   badgeRow: { flexDirection: "row", gap: 6 },
   availability: { fontFamily: typography.fontFamilyRegular, fontSize: 13, color: colors.muted },
-  alsoPlaysLabel: { fontFamily: typography.fontFamilyRegular, fontSize: 12, color: colors.muted },
-  chipRowSmall: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 },
-  smallChip: { height: 24, paddingHorizontal: 8, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white, justifyContent: "center" },
-  smallChipLabel: { fontSize: 12, fontFamily: typography.fontFamilyRegular, color: colors.charcoal },
   divider: { height: 1, backgroundColor: colors.border },
   requestButton: { height: 44, borderRadius: 12, backgroundColor: colors.coral, alignItems: "center", justifyContent: "center" },
   requestButtonSent: { backgroundColor: colors.border },

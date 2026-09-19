@@ -112,13 +112,23 @@ export default function ChatScreen() {
   // AND nothing else is currently scheduled.
   const caseBanner = activeTrainings.length === 0 && firstTraining?.status === "completed" ? (chat?.isClosed ? "closed" : "next-session") : null;
 
+  // Round 7, Fix 2: "Schedule Event" is only tappable while at least one
+  // matched sport has no currently-scheduled Event.
+  const scheduledActivityIds = new Set(activeTrainings.map((t) => t.activityId));
+  const unscheduledSports = chat ? chat.sports.filter((s) => !scheduledActivityIds.has(s.activityId)) : [];
+  const scheduleDisabled = unscheduledSports.length === 0;
+
   function openScheduler() {
     if (!chat) return;
+    if (scheduleDisabled) {
+      setToastMessage("All your sports are already scheduled. Complete an event first.");
+      return;
+    }
     setEditingTraining(null);
-    if (chat.sports.length > 1) {
+    if (unscheduledSports.length > 1) {
       setSportSelectorOpen(true);
-    } else if (chat.sports.length === 1) {
-      startScheduleFor(chat.sports[0].activityId);
+    } else {
+      startScheduleFor(unscheduledSports[0].activityId);
     }
   }
 
@@ -337,7 +347,12 @@ export default function ChatScreen() {
             <Button label="Send" onPress={send} />
           </View>
           <View style={{ padding: spacing.md, paddingTop: 0, paddingBottom: insets.bottom + spacing.md }}>
-            <Button label="Schedule Event" variant="secondary" onPress={openScheduler} />
+            <Pressable
+              style={[styles.scheduleButton, scheduleDisabled && styles.scheduleButtonDisabled]}
+              onPress={openScheduler}
+            >
+              <Text style={[styles.scheduleButtonLabel, scheduleDisabled && styles.scheduleButtonLabelDisabled]}>Schedule Event</Text>
+            </Pressable>
           </View>
         </>
       )}
@@ -519,4 +534,8 @@ const styles = StyleSheet.create({
   sectionLabel: { fontFamily: typography.fontFamilyBold, fontSize: 12, color: colors.muted, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: spacing.sm },
   reportSheet: { backgroundColor: colors.white, borderTopLeftRadius: radii.lg, borderTopRightRadius: radii.lg, padding: spacing.lg, gap: spacing.md },
   reportInput: { minHeight: 90, borderWidth: 1, borderColor: colors.border, borderRadius: radii.sm, padding: spacing.md, fontFamily: typography.fontFamilyRegular, textAlignVertical: "top" },
+  scheduleButton: { minHeight: 44, borderRadius: radii.lg, backgroundColor: colors.coral, alignItems: "center", justifyContent: "center" },
+  scheduleButtonDisabled: { backgroundColor: "#E2E8F0" },
+  scheduleButtonLabel: { fontFamily: typography.fontFamily, fontSize: 16, color: colors.white },
+  scheduleButtonLabelDisabled: { color: "#94A3B8" },
 });

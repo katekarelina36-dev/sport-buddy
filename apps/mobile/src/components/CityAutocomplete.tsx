@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
+import { useRef, useState } from "react";
+import { View, Text, TextInput, Pressable, StyleSheet, Keyboard } from "react-native";
 import { colors, spacing, typography, radii } from "../theme";
 import { EU_CAPITALS, isValidCity } from "../utils/euCapitals";
 
@@ -15,13 +15,20 @@ interface Props {
 export function CityAutocomplete({ value, onChangeText, placeholder = "Start typing your city..." }: Props) {
   const [open, setOpen] = useState(false);
   const [touched, setTouched] = useState(false);
+  const inputRef = useRef<TextInput>(null);
 
   const matches =
     value.trim().length > 0 ? EU_CAPITALS.filter((c) => c.toLowerCase().includes(value.trim().toLowerCase())).slice(0, 5) : [];
 
+  // Fix 5 (Round 7): selecting a suggestion fully fills the field with the
+  // exact list spelling, closes the dropdown, and dismisses the keyboard —
+  // previously the value updated but focus/keyboard stayed put.
   function selectCity(city: string) {
     onChangeText(city);
     setOpen(false);
+    setTouched(true);
+    inputRef.current?.blur();
+    Keyboard.dismiss();
   }
 
   function handleBlur() {
@@ -35,6 +42,7 @@ export function CityAutocomplete({ value, onChangeText, placeholder = "Start typ
   return (
     <View>
       <TextInput
+        ref={inputRef}
         style={styles.input}
         placeholder={placeholder}
         placeholderTextColor={colors.muted}
