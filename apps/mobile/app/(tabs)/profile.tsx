@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { Card } from "../../src/components/Card";
 import { Badge } from "../../src/components/Badge";
@@ -28,14 +28,23 @@ export default function ProfileScreen() {
         <Text style={styles.stat}>{profile.profile?.successfulTrainingsCount ?? 0} successful trainings</Text>
       </Card>
 
-      <Card style={{ gap: spacing.sm, marginTop: spacing.md }}>
-        <Text style={styles.sectionHeader}>Preferred activities</Text>
-        <View style={styles.chipRow}>
-          {profile.activities.map((a) => (
-            <Badge key={a.activityId} label={a.activity.name} tone="coral" />
-          ))}
-        </View>
-      </Card>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Edit activities/availability"
+        onPress={() => router.push({ pathname: "/availability", params: { mode: "profile" } })}
+      >
+        <Card style={{ gap: spacing.sm, marginTop: spacing.md }}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.sectionHeader}>Edit activities/availability</Text>
+            <Text style={styles.chevron}>›</Text>
+          </View>
+          <View style={styles.chipRow}>
+            {profile.activities.map((a) => (
+              <Badge key={a.activityId} label={a.activity.name} tone="coral" />
+            ))}
+          </View>
+        </Card>
+      </Pressable>
 
       <Card style={{ gap: spacing.sm, marginTop: spacing.md }}>
         <Text style={styles.sectionHeader}>Communities</Text>
@@ -53,7 +62,6 @@ export default function ProfileScreen() {
       <View style={styles.actions}>
         <Button label="Edit profile" onPress={() => router.push("/profile/edit")} />
         <Button label="Pending requests" onPress={() => router.push("/requests")} />
-        <Button label="Edit availability" variant="secondary" onPress={() => router.push({ pathname: "/availability", params: { mode: "profile" } })} />
         <Button label="Log out" variant="outline" onPress={logout} />
       </View>
     </ScrollView>
@@ -67,6 +75,8 @@ const styles = StyleSheet.create({
   bio: { fontFamily: typography.fontFamilyRegular, color: colors.muted },
   stat: { fontFamily: typography.fontFamily, fontSize: 13, color: colors.sageDark },
   sectionHeader: { fontFamily: typography.fontFamily, color: colors.sageDark },
+  cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  chevron: { fontFamily: typography.fontFamilyBold, fontSize: 18, color: colors.muted },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   actions: { gap: spacing.sm, marginTop: spacing.lg },
 });
