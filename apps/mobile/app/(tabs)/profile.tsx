@@ -4,7 +4,7 @@ import { Card } from "../../src/components/Card";
 import { Badge } from "../../src/components/Badge";
 import { Button } from "../../src/components/Button";
 import { Avatar } from "../../src/components/Avatar";
-import { colors, spacing, typography } from "../../src/theme";
+import { colors, spacing, typography, topInset } from "../../src/theme";
 import { useAuth } from "../../src/hooks/useAuth";
 
 // F5: My Profile (view). Editing (photo, name, bio, preferred activities)
@@ -69,7 +69,7 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: spacing.lg, backgroundColor: colors.offWhite, flexGrow: 1 },
+  container: { paddingHorizontal: spacing.lg, paddingTop: topInset, paddingBottom: spacing.lg, backgroundColor: colors.offWhite, flexGrow: 1 },
   title: { fontFamily: typography.fontFamilyBold, fontSize: 24, color: colors.charcoal, marginBottom: spacing.md },
   name: { fontFamily: typography.fontFamilyBold, fontSize: 20, color: colors.charcoal },
   bio: { fontFamily: typography.fontFamilyRegular, color: colors.muted },

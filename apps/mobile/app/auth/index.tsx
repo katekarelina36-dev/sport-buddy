@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { View, Text, TextInput, StyleSheet, Alert } from "react-native";
 import { Button } from "../../src/components/Button";
-import { colors, spacing, typography, radii } from "../../src/theme";
+import { colors, spacing, typography, radii, topInset } from "../../src/theme";
 import { useAuth } from "../../src/hooks/useAuth";
 
 export default function AuthScreen() {
@@ -47,7 +47,15 @@ export default function AuthScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.offWhite, padding: spacing.lg, justifyContent: "center", gap: spacing.md },
+  container: {
+    flex: 1,
+    backgroundColor: colors.offWhite,
+    paddingHorizontal: spacing.lg,
+    paddingTop: topInset,
+    paddingBottom: spacing.lg,
+    justifyContent: "center",
+    gap: spacing.md,
+  },
   title: { fontFamily: typography.fontFamilyBold, fontSize: 32, color: colors.charcoal, textAlign: "center" },
   subtitle: { fontFamily: typography.fontFamilyRegular, color: colors.muted, textAlign: "center", marginBottom: spacing.lg },
   input: {

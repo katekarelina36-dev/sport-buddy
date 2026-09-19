@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { View, Text, FlatList, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { api } from "../../src/api/client";
-import { colors, radii, spacing, shadow, typography, minTouchTarget } from "../../src/theme";
+import { colors, radii, spacing, shadow, typography, minTouchTarget, topInset } from "../../src/theme";
 import type { Activity } from "../../src/api/types";
 
 // F2: server-driven activity grid; tapping a card goes to the feed pre-filtered
@@ -36,7 +36,7 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.offWhite, padding: spacing.lg },
+  container: { flex: 1, backgroundColor: colors.offWhite, paddingHorizontal: spacing.lg, paddingTop: topInset, paddingBottom: spacing.lg },
   title: { fontFamily: typography.fontFamilyBold, fontSize: 24, color: colors.charcoal, marginBottom: spacing.md },
   card: {
     flex: 1,

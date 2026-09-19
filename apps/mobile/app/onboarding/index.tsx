@@ -3,7 +3,7 @@ import { View, Text, TextInput, StyleSheet, Pressable, ScrollView, ActivityIndic
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { Button } from "../../src/components/Button";
-import { colors, spacing, typography, radii } from "../../src/theme";
+import { colors, spacing, typography, radii, topInset } from "../../src/theme";
 import { api, uploadPhoto } from "../../src/api/client";
 import { useAuth } from "../../src/hooks/useAuth";
 import type { Activity, SkillLevel } from "../../src/api/types";
@@ -178,7 +178,7 @@ export default function OnboardingScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.offWhite, padding: spacing.lg },
+  container: { flex: 1, backgroundColor: colors.offWhite, paddingHorizontal: spacing.lg, paddingTop: topInset, paddingBottom: spacing.lg },
   progressTrack: { flexDirection: "row", gap: spacing.xs, justifyContent: "center", marginBottom: spacing.lg },
   progressDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.border },
   progressDotActive: { backgroundColor: colors.sageDark },

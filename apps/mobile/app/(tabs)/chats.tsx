@@ -3,7 +3,7 @@ import { View, Text, FlatList, Pressable, StyleSheet } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { api } from "../../src/api/client";
 import { Avatar } from "../../src/components/Avatar";
-import { colors, spacing, typography, radii, shadow } from "../../src/theme";
+import { colors, spacing, typography, radii, shadow, topInset } from "../../src/theme";
 import { useAuth } from "../../src/hooks/useAuth";
 import type { ChatSummary } from "../../src/api/types";
 
@@ -53,7 +53,7 @@ export default function ChatsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.offWhite, padding: spacing.lg },
+  container: { flex: 1, backgroundColor: colors.offWhite, paddingHorizontal: spacing.lg, paddingTop: topInset, paddingBottom: spacing.lg },
   title: { fontFamily: typography.fontFamilyBold, fontSize: 24, color: colors.charcoal, marginBottom: spacing.md },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: colors.white, padding: spacing.sm, borderRadius: radii.sm, ...shadow },
   name: { fontFamily: typography.fontFamily, color: colors.charcoal },
