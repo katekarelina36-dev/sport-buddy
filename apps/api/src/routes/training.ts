@@ -36,6 +36,24 @@ trainingRouter.post("/", async (req: AuthedRequest, res) => {
     return;
   }
 
+  // Bug fix batch 3, section 3: the sport must be one this chat actually
+  // matched on, and can't already have a scheduled (not yet completed/
+  // cancelled) Event — it frees up again once that one is resolved.
+  const chatHasSport = await prisma.chatSport.findUnique({ where: { chatId_activityId: { chatId, activityId } } });
+  if (!chatHasSport) {
+    res.status(409).json({ error: "This chat hasn't matched on that sport" });
+    return;
+  }
+  const alreadyScheduled = await prisma.trainingSession.findFirst({ where: { chatId, activityId, status: "scheduled" } });
+  if (alreadyScheduled) {
+    res.status(409).json({ error: "This sport already has a scheduled Event" });
+    return;
+  }
+
+  // Section 4: "first event ever between these two people" (any sport) gets
+  // the full Q1/Q2 completion sheet; every later one gets a simple confirm.
+  const priorCompleted = await prisma.trainingSession.findFirst({ where: { chatId, status: "completed" } });
+
   const training = await prisma.trainingSession.create({
     data: {
       chatId,
@@ -46,6 +64,7 @@ trainingRouter.post("/", async (req: AuthedRequest, res) => {
       locationText,
       isRecurring,
       recurrenceRule,
+      isFirstBetweenUsers: !priorCompleted,
     },
   });
 
@@ -118,6 +137,16 @@ async function closeChatOnce(chatId: string): Promise<void> {
   ]);
 }
 
+// Bug fix batch 3, section 5: "[Sport name] session completed · [Date]" system
+// message posted after ANY Event resolves to completed (first or subsequent).
+async function postCompletionMessage(chatId: string, activityId: string, scheduledAt: Date): Promise<void> {
+  const activity = await prisma.activity.findUnique({ where: { id: activityId } });
+  const dateLabel = scheduledAt.toLocaleDateString([], { day: "numeric", month: "short" });
+  await prisma.message.create({
+    data: { chatId, type: "system", body: `${activity?.name ?? "Activity"} session completed · ${dateLabel}` },
+  });
+}
+
 // Bug fix batch 2, Bug 1: "Did this session take place?" / "Would you play
 // again?" now applies to every completed Event, not just the first — a
 // unilateral "No" closes the chat right away (no reason to wait for the
@@ -159,12 +188,33 @@ trainingRouter.post("/:id/complete", async (req: AuthedRequest, res) => {
         await prisma.userProfile.update({ where: { userId: training.participantId }, data: { successfulTrainingsCount: { increment: 1 } } });
       });
     }
+    await postCompletionMessage(training.chatId, training.activityId, training.scheduledAt);
     if (!bothWantToContinue) {
       await closeChatOnce(training.chatId);
+    } else {
+      await prisma.message.create({
+        data: { chatId: training.chatId, type: "system", body: "Ready for the next session? Tap Schedule Event to plan it." },
+      });
     }
   }
   // else: Case C — this user said yes, the other hasn't answered yet; the
   // Event stays "scheduled" and completedByUser{A,B} alone signals the wait.
 
   res.json(await prisma.trainingSession.findUniqueOrThrow({ where: { id: training.id } }));
+});
+
+// Bug fix batch 3, section 4: every event AFTER the pair's first one — no
+// questions, just "mark this session as completed?" from the client, counters
+// increment immediately, and the chat is never closed by this path.
+trainingRouter.post("/:id/complete-simple", async (req: AuthedRequest, res) => {
+  const training = await prisma.trainingSession.update({
+    where: { id: req.params.id },
+    data: { status: "completed", completedAt: new Date() },
+  });
+  enqueue(async () => {
+    await prisma.userProfile.update({ where: { userId: training.hostId }, data: { successfulTrainingsCount: { increment: 1 } } });
+    await prisma.userProfile.update({ where: { userId: training.participantId }, data: { successfulTrainingsCount: { increment: 1 } } });
+  });
+  await postCompletionMessage(training.chatId, training.activityId, training.scheduledAt);
+  res.json(training);
 });

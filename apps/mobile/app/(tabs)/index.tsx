@@ -1,15 +1,17 @@
 import { useEffect, useState } from "react";
 import { View, Text, FlatList, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../../src/api/client";
 import { ActivityIcon } from "../../src/components/icons/ActivityIcon";
-import { colors, radii, spacing, shadow, typography, minTouchTarget, topInset } from "../../src/theme";
+import { colors, radii, spacing, shadow, typography, minTouchTarget } from "../../src/theme";
 import type { Activity } from "../../src/api/types";
 
 // F2/F3 (Round 2): "Explore Activities" sport picker — server-driven 3-column
 // grid; tapping a card goes to the feed pre-filtered by that activity (F3).
 export default function HomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [activities, setActivities] = useState<Activity[]>([]);
 
   useEffect(() => {
@@ -17,7 +19,7 @@ export default function HomeScreen() {
   }, []);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <Text style={styles.title}>Explore Activities</Text>
       <Text style={styles.subtitle}>Choose a sport to find a partner</Text>
       <FlatList
@@ -40,7 +42,7 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.offWhite, paddingHorizontal: spacing.lg, paddingTop: topInset, paddingBottom: spacing.lg },
+  container: { flex: 1, backgroundColor: colors.offWhite, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg },
   title: { fontFamily: typography.fontFamilyBold, fontSize: 22, color: colors.charcoal },
   subtitle: { fontFamily: typography.fontFamilyRegular, fontSize: 15, color: colors.muted, marginTop: 4 },
   card: {

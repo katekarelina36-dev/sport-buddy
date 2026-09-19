@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { View, Text, ScrollView, StyleSheet, Pressable, ActivityIndicator, Alert, Modal, TextInput } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../../src/api/client";
 import { Badge } from "../../src/components/Badge";
 import { Button } from "../../src/components/Button";
@@ -18,6 +19,7 @@ import type { PublicUser } from "../../src/api/types";
 export default function UserProfileScreen() {
   const { userId, activityId } = useLocalSearchParams<{ userId: string; activityId?: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [user, setUser] = useState<PublicUser | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
@@ -59,7 +61,7 @@ export default function UserProfileScreen() {
 
   return (
     <View style={styles.screen}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top, height: 56 + insets.top }]}>
         <Pressable accessibilityLabel="Back" style={styles.headerButton} onPress={() => router.back()}>
           <Text style={styles.headerIcon}>←</Text>
         </Pressable>
@@ -123,7 +125,7 @@ export default function UserProfileScreen() {
         )}
       </ScrollView>
 
-      <View style={styles.bottomBar}>
+      <View style={[styles.bottomBar, { paddingBottom: insets.bottom + spacing.md }]}>
         <Pressable
           style={[styles.sendButton, requested && styles.sendButtonSent]}
           disabled={requested}
@@ -209,7 +211,7 @@ const styles = StyleSheet.create({
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   communityChip: { height: 28, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white, justifyContent: "center" },
   communityChipLabel: { fontFamily: typography.fontFamilyRegular, fontSize: 13, color: colors.charcoal },
-  bottomBar: { position: "absolute", bottom: 0, left: 0, right: 0, backgroundColor: colors.white, borderTopWidth: 1, borderTopColor: colors.border, padding: spacing.md, paddingBottom: spacing.xl },
+  bottomBar: { position: "absolute", bottom: 0, left: 0, right: 0, backgroundColor: colors.white, borderTopWidth: 1, borderTopColor: colors.border, padding: spacing.md },
   sendButton: { height: 52, borderRadius: radii.lg, backgroundColor: colors.coral, alignItems: "center", justifyContent: "center" },
   sendButtonSent: { backgroundColor: colors.border },
   sendButtonLabel: { fontFamily: typography.fontFamily, fontSize: 16, color: colors.white },

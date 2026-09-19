@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView, Modal, Alert, Platform } from "react-native";
+import { View, Text, StyleSheet, Pressable, ScrollView, Modal, Alert } from "react-native";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../../src/api/client";
 import { useAuth } from "../../src/hooks/useAuth";
 import { SportAvailabilityCard, type SportSelection } from "../../src/components/SportAvailabilityCard";
@@ -12,6 +13,7 @@ import type { Activity } from "../../src/api/types";
 // step 3), with remove + "+ Add Sport" (opens a catalog picker sheet).
 export default function PreferredActivitiesScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { profile, refresh } = useAuth();
   const [activities, setActivities] = useState<Activity[]>([]);
   const [sports, setSports] = useState<Record<string, SportSelection>>({});
@@ -124,7 +126,7 @@ export default function PreferredActivitiesScreen() {
 
   return (
     <View style={styles.screen}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top, height: 56 + insets.top }]}>
         <Pressable onPress={() => router.back()}>
           <Text style={styles.headerButtonLeft}>Cancel</Text>
         </Pressable>
@@ -153,7 +155,7 @@ export default function PreferredActivitiesScreen() {
 
       {/* Bug fix batch 2, Bug 4: primary CTA must be a fixed footer, never
           inside the ScrollView, so it can't be scrolled out of reach. */}
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
         <Pressable style={[styles.saveButton, (!hasChanges || saving) && styles.saveButtonDisabled]} disabled={!hasChanges || saving} onPress={save}>
           <Text style={[styles.saveButtonLabel, (!hasChanges || saving) && styles.saveButtonLabelDisabled]}>{saving ? "Saving…" : "Save"}</Text>
         </Pressable>
@@ -161,7 +163,7 @@ export default function PreferredActivitiesScreen() {
 
       <Modal visible={pickerOpen} animationType="slide" transparent onRequestClose={() => setPickerOpen(false)}>
         <Pressable style={styles.backdrop} onPress={() => setPickerOpen(false)} />
-        <View style={styles.sheet}>
+        <View style={[styles.sheet, { paddingBottom: insets.bottom + spacing.md }]}>
           <View style={styles.handle} />
           <Text style={styles.sheetTitle}>Add a sport</Text>
           <View style={styles.sportGrid}>
@@ -192,7 +194,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
-    paddingBottom: Platform.OS === "ios" ? spacing.xl : spacing.md,
   },
   saveButton: { height: 52, borderRadius: radii.lg, backgroundColor: colors.coral, alignItems: "center", justifyContent: "center" },
   saveButtonDisabled: { backgroundColor: colors.border },

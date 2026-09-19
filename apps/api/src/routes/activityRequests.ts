@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { requireAuth, type AuthedRequest } from "../lib/auth.js";
 import { notify } from "../lib/notify.js";
+import { emitToUser } from "../sockets/chat.js";
 
 export const activityRequestsRouter = Router();
 activityRequestsRouter.use(requireAuth);
@@ -43,6 +44,7 @@ activityRequestsRouter.post("/", async (req: AuthedRequest, res) => {
       data: { requesterId: req.userId!, postId, slotId, activityId: post.activityId, status: "pending" },
     });
     notify(post.authorId, "activity_request_received", { message: "You have a new activity request." }, `/requests`);
+    broadcastPendingCount(post.authorId);
     res.status(201).json(request);
     return;
   }
@@ -59,12 +61,27 @@ activityRequestsRouter.post("/", async (req: AuthedRequest, res) => {
     data: { requesterId: req.userId!, targetUserId, activityId, selectedDayOfWeek, selectedStartTime, selectedEndTime, status: "pending" },
   });
   notify(targetUserId, "activity_request_received", { message: "You have a new activity request." }, `/requests`);
+  broadcastPendingCount(targetUserId);
   res.status(201).json(request);
 });
 
 function recipientId(request: { post: { authorId: string } | null; targetUserId: string | null }): string {
   return request.post?.authorId ?? request.targetUserId!;
 }
+
+// Bug fix batch 3, section 7: pending-count badge, pushed to the recipient's
+// socket room in real time and available here as the poll/on-open fallback.
+async function pendingCountFor(userId: string): Promise<number> {
+  return prisma.activityRequest.count({ where: { status: "pending", OR: [{ post: { authorId: userId } }, { targetUserId: userId }] } });
+}
+
+async function broadcastPendingCount(userId: string): Promise<void> {
+  emitToUser(userId, "requests:count", await pendingCountFor(userId));
+}
+
+activityRequestsRouter.get("/pending/count", async (req: AuthedRequest, res) => {
+  res.json({ count: await pendingCountFor(req.userId!) });
+});
 
 // F8: pending queue for whoever the request was sent to (post owner, or the
 // directly-targeted user).
@@ -98,8 +115,9 @@ activityRequestsRouter.get("/sent", async (req: AuthedRequest, res) => {
     requests.map(async (request) => {
       if (request.status !== "approved") return { ...request, chatId: null };
       const [userAId, userBId] = [recipientId(request), request.requesterId].sort();
-      const chat = await prisma.chat.findFirst({
-        where: { userAId, userBId, activityId: request.activityId },
+      // One chat per pair (bug fix batch 3, section 1) — no longer scoped by sport.
+      const chat = await prisma.chat.findUnique({
+        where: { userAId_userBId: { userAId, userBId } },
         select: { id: true },
       });
       return { ...request, chatId: chat?.id ?? null };
@@ -142,6 +160,9 @@ activityRequestsRouter.post("/:id/approve", async (req: AuthedRequest, res) => {
 
   const [userAId, userBId] = [recipientId(request), request.requesterId].sort();
 
+  // Bug fix batch 3, section 1: exactly one chat per pair — a second sport
+  // between the same two people adds a ChatSport row to that same chat
+  // instead of creating a new thread.
   const chat = await prisma.$transaction(async (tx) => {
     await tx.activityRequest.update({ where: { id: request.id }, data: { status: "approved", decidedAt: new Date() } });
 
@@ -153,10 +174,13 @@ activityRequestsRouter.post("/:id/approve", async (req: AuthedRequest, res) => {
       }
     }
 
-    const existingChat = await tx.chat.findFirst({
-      where: { userAId, userBId, activityId: request.activityId },
-    });
+    const existingChat = await tx.chat.findUnique({ where: { userAId_userBId: { userAId, userBId } } });
     if (existingChat) {
+      await tx.chatSport.upsert({
+        where: { chatId_activityId: { chatId: existingChat.id, activityId: request.activityId } },
+        update: {},
+        create: { chatId: existingChat.id, activityId: request.activityId, activityRequestId: request.id },
+      });
       return tx.chat.update({ where: { id: existingChat.id }, data: { isClosed: false } });
     }
 
@@ -164,8 +188,8 @@ activityRequestsRouter.post("/:id/approve", async (req: AuthedRequest, res) => {
       data: {
         userAId,
         userBId,
-        activityId: request.activityId,
         originatingRequestId: request.id,
+        sports: { create: { activityId: request.activityId, activityRequestId: request.id } },
         messages: {
           create: {
             type: "template",
@@ -177,6 +201,7 @@ activityRequestsRouter.post("/:id/approve", async (req: AuthedRequest, res) => {
   });
 
   notify(request.requesterId, "activity_request_approved", { message: "Your activity request was approved!" }, `/chat/${chat.id}`);
+  broadcastPendingCount(req.userId!);
   res.json({ request: { ...request, status: "approved" }, chat });
 });
 
@@ -192,5 +217,6 @@ activityRequestsRouter.post("/:id/reject", async (req: AuthedRequest, res) => {
   }
   await prisma.activityRequest.update({ where: { id: request.id }, data: { status: "rejected", decidedAt: new Date() } });
   notify(request.requesterId, "activity_request_rejected", { message: "Your activity request was declined." });
+  broadcastPendingCount(req.userId!);
   res.json({ ok: true });
 });

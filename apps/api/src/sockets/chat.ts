@@ -7,9 +7,13 @@ interface AuthedSocket extends Socket {
   userId?: string;
 }
 
+let ioInstance: Server | null = null;
+
 // F11: real-time messaging over WebSocket, <300ms send/receive target; falls
 // back to REST (routes/chats.ts) + push when the socket is unavailable.
 export function attachChatGateway(io: Server): void {
+  ioInstance = io;
+
   io.use((socket: AuthedSocket, next) => {
     try {
       const token = socket.handshake.auth?.token as string | undefined;
@@ -23,6 +27,10 @@ export function attachChatGateway(io: Server): void {
   });
 
   io.on("connection", (socket: AuthedSocket) => {
+    // Bug fix batch 3, section 7: a per-user room so the API can push
+    // updates (e.g. the pending-requests badge count) outside of any chat.
+    socket.join(userRoomFor(socket.userId!));
+
     socket.on("chat:join", (chatId: string) => {
       socket.join(roomFor(chatId));
     });
@@ -37,6 +45,14 @@ export function attachChatGateway(io: Server): void {
   });
 }
 
+export function emitToUser(userId: string, event: string, payload: unknown): void {
+  ioInstance?.to(userRoomFor(userId)).emit(event, payload);
+}
+
 function roomFor(chatId: string): string {
   return `chat:${chatId}`;
+}
+
+function userRoomFor(userId: string): string {
+  return `user:${userId}`;
 }

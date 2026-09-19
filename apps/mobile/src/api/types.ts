@@ -97,11 +97,18 @@ export interface ActivityRequest {
   chatId?: string | null;
 }
 
+// Bug fix batch 3, section 1: a chat can now carry multiple sports (one chat
+// per user pair, no matter how many sports they've matched on).
+export interface ChatSport {
+  activityId: string;
+  activity: Activity;
+}
+
 export interface ChatSummary {
   id: string;
   userA: { id: string; profile: UserProfile | null };
   userB: { id: string; profile: UserProfile | null };
-  activity: Activity;
+  sports: ChatSport[];
   isClosed: boolean;
   messages: Message[];
   unreadCount: number;
@@ -125,6 +132,7 @@ export interface TrainingSession {
   hostId: string;
   participantId: string;
   activityId: string;
+  activity?: Activity;
   scheduledAt: string;
   locationText: string | null;
   status: "scheduled" | "completed" | "cancelled";
@@ -134,4 +142,6 @@ export interface TrainingSession {
   completedByUserB: boolean;
   wouldPlayAgainA: boolean | null;
   wouldPlayAgainB: boolean | null;
+  // Bug fix batch 3, section 4: full Q1/Q2 sheet vs. simple confirm.
+  isFirstBetweenUsers: boolean;
 }

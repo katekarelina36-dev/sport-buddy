@@ -168,7 +168,7 @@ model Activity {
   trainingSessions  TrainingSession[]
   challenges        Challenge[]
   matchSubscriptions MatchSubscription[]
-  chats             Chat[]
+  chatSports        ChatSport[]
 }
 
 model UserActivity {
@@ -267,7 +267,8 @@ model ActivityRequest {
   createdAt   DateTime               @default(now())
   decidedAt   DateTime?
 
-  chat Chat?
+  chat      Chat?      // set only for the request that originally created the chat (Chat.originatingRequestId)
+  chatSport ChatSport? // set for a request that added a sport to an ALREADY-existing chat (bug fix batch 3, section 1)
 
   @@unique([requesterId, postId, status])
   @@unique([requesterId, targetUserId, activityId, status])
@@ -277,6 +278,10 @@ model ActivityRequest {
 // Match layer (F7-F14)
 // ------------------------------------------------------------------
 
+// Bug fix batch 3, section 1: exactly ONE chat thread per user pair, no matter
+// how many sports they've matched on — a second approved request between the
+// same two people (for a different sport) adds a ChatSport row to this same
+// chat instead of creating a new one.
 model Chat {
   id                  String   @id @default(uuid())
   userAId             String
@@ -285,18 +290,31 @@ model Chat {
   userB               User     @relation("ChatUserB", fields: [userBId], references: [id])
   originatingRequestId String? @unique
   originatingRequest  ActivityRequest? @relation(fields: [originatingRequestId], references: [id])
-  activityId          String
-  activity            Activity @relation(fields: [activityId], references: [id])
   isClosed            Boolean  @default(false)
   createdAt           DateTime @default(now())
   lastMessageAt        DateTime @default(now())
 
+  sports           ChatSport[]
   messages         Message[]
   reads            ChatRead[]
   trainingSessions TrainingSession[]
 
+  @@unique([userAId, userBId])
   @@index([userAId])
   @@index([userBId])
+}
+
+model ChatSport {
+  id                String           @id @default(uuid())
+  chatId            String
+  chat              Chat             @relation(fields: [chatId], references: [id])
+  activityId        String
+  activity          Activity         @relation(fields: [activityId], references: [id])
+  activityRequestId String?          @unique
+  activityRequest   ActivityRequest? @relation(fields: [activityRequestId], references: [id])
+  createdAt         DateTime         @default(now())
+
+  @@unique([chatId, activityId])
 }
 
 model ChatRead {
@@ -342,6 +360,11 @@ model TrainingSession {
   locationText  String?
   status        TrainingStatus     @default(scheduled)
   completedAt   DateTime?
+
+  // Bug fix batch 3, section 4: true only if no OTHER training_session in
+  // this chat had already reached "completed" when this one was created —
+  // decides "full Q1/Q2 completion sheet" vs "simple confirm dialog".
+  isFirstBetweenUsers Boolean @default(true)
 
   isRecurring     Boolean  @default(false)
   recurrenceRule  String?

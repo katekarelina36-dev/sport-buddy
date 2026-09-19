@@ -5,7 +5,10 @@ import { colors, radii, spacing, typography } from "../theme";
 import type { SkillLevel } from "../api/types";
 
 const LEVELS: SkillLevel[] = ["beginner", "intermediate", "advanced", "pro"];
-const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+// Bug fix batch 3, section 9.3: Mon..Sun everywhere; dayOfWeek values stay
+// JS-Date convention (0=Sun..6=Sat), only display order changes.
+const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
+const DAY_LABELS_BY_DAY: Record<number, string> = { 0: "Sun", 1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat" };
 
 export interface FilterValue {
   levels: SkillLevel[];
@@ -54,7 +57,7 @@ export function FilterSheet({ visible, value, onApply, onClose }: Props) {
 
         <Text style={styles.sectionLabel}>Day</Text>
         <View style={styles.dayRow}>
-          {DAY_LABELS.map((label, dayOfWeek) => {
+          {DAY_ORDER.map((dayOfWeek) => {
             const selected = draft.days.includes(dayOfWeek);
             return (
               <Pressable
@@ -62,7 +65,7 @@ export function FilterSheet({ visible, value, onApply, onClose }: Props) {
                 style={[styles.dayCircle, selected && styles.dayCircleSelected]}
                 onPress={() => setDraft((d) => ({ ...d, days: toggle(d.days, dayOfWeek) }))}
               >
-                <Text style={[styles.dayLabel, selected && styles.dayLabelSelected]}>{label[0]}</Text>
+                <Text style={[styles.dayLabel, selected && styles.dayLabelSelected]}>{DAY_LABELS_BY_DAY[dayOfWeek][0]}</Text>
               </Pressable>
             );
           })}

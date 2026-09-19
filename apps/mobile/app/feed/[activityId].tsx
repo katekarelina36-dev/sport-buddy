@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { View, Text, FlatList, StyleSheet, Pressable, ActivityIndicator } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../../src/api/client";
 import { Card } from "../../src/components/Card";
 import { Badge } from "../../src/components/Badge";
@@ -22,6 +23,7 @@ const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 export default function FeedScreen() {
   const { activityId } = useLocalSearchParams<{ activityId: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [entries, setEntries] = useState<DiscoverEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -136,8 +138,8 @@ export default function FeedScreen() {
           );
         }}
       />
-      <View style={styles.footer}>
-        <Button label="Couldn't find a match?" variant="secondary" onPress={() => router.push({ pathname: "/availability", params: { mode: "waitlist", activityId } })} />
+      <View style={[styles.footer, { paddingTop: spacing.sm, paddingBottom: insets.bottom + spacing.sm }]}>
+        <Button label="Couldn't find a match?" variant="secondary" onPress={() => router.push({ pathname: "/availability", params: { activityId } })} />
       </View>
 
       <FilterSheet visible={filterOpen} value={filter} onApply={setFilter} onClose={() => setFilterOpen(false)} />

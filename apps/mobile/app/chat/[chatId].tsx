@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { View, Text, FlatList, TextInput, StyleSheet, Pressable, Alert, Modal } from "react-native";
+import { View, Text, FlatList, TextInput, StyleSheet, Pressable, Alert, Modal, ScrollView } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { Socket } from "socket.io-client";
 import { api } from "../../src/api/client";
 import { getChatSocket } from "../../src/api/socket";
@@ -8,6 +9,7 @@ import { Button } from "../../src/components/Button";
 import { Avatar } from "../../src/components/Avatar";
 import { ScheduleEventSheet, type ScheduleEventValues } from "../../src/components/ScheduleEventSheet";
 import { CompletionSheet, type CompletionAnswers } from "../../src/components/CompletionSheet";
+import { SportSelectorSheet } from "../../src/components/SportSelectorSheet";
 import { Toast } from "../../src/components/Toast";
 import type { DaySlot } from "../../src/components/WeeklyAvailabilityWidget";
 import { colors, spacing, typography, radii } from "../../src/theme";
@@ -15,27 +17,31 @@ import { useAuth } from "../../src/hooks/useAuth";
 import type { Message, ChatSummary, TrainingSession, PublicUser } from "../../src/api/types";
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const EVENTS_COLLAPSED_LIMIT = 2;
 
-// F11 (real-time messaging + auto starters) + F12 (in-chat scheduler, sticky
-// banner, calendar sync status) + F13 (challenge card render, delivered as a
-// "system" message by the backend on Event creation) + F14/bug-fix-batch-2
-// (post-completion flow: "did it happen?" / "would you play again?" for
-// every Event, driving the banner's Scheduled -> Waiting -> Next-session /
-// Closed states) + bug-fix-batch-2 (custom header with partner name+photo,
-// grouped message avatars).
+// F11 (real-time messaging) + F12 (in-chat scheduler) + F13 (challenge card) +
+// bug fix batch 3: one chat per pair with possibly several matched sports
+// (section 1), multiple simultaneous Event banners with Edit/Complete
+// (section 2), a sport selector before scheduling when 2+ sports are active
+// (section 3), first-event-ever Q1/Q2 sheet vs. simple confirm for every
+// later Event (section 4), post-first-event states (section 5), and safe-area
+// aware header/footers (section 6).
 export default function ChatScreen() {
   const { chatId } = useLocalSearchParams<{ chatId: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { profile } = useAuth();
   const [chat, setChat] = useState<ChatSummary | null>(null);
   const [trainings, setTrainings] = useState<TrainingSession[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [partner, setPartner] = useState<PublicUser | null>(null);
   const [input, setInput] = useState("");
+  const [eventsExpanded, setEventsExpanded] = useState(false);
+  const [sportSelectorOpen, setSportSelectorOpen] = useState(false);
+  const [schedulingActivityId, setSchedulingActivityId] = useState<string | null>(null);
   const [schedulerOpen, setSchedulerOpen] = useState(false);
   const [editingTraining, setEditingTraining] = useState<TrainingSession | null>(null);
   const [scheduling, setScheduling] = useState(false);
-  const [partnerSlots, setPartnerSlots] = useState<DaySlot[]>([]);
   const [completingTraining, setCompletingTraining] = useState<TrainingSession | null>(null);
   const [completing, setCompleting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -51,17 +57,10 @@ export default function ChatScreen() {
     setMessages(res.messages);
     api.post(`/chats/${chatId}/read`);
 
-    // Bug fix batch: header (name+photo) and the Schedule Event sheet's
-    // "their availability" both need the other participant's public profile.
     const otherUserId = res.chat.userA.id === profile?.id ? res.chat.userB.id : res.chat.userA.id;
     if (otherUserId) {
       const other = await api.get<PublicUser>(`/users/${otherUserId}`);
       setPartner(other);
-      setPartnerSlots(
-        other.availability
-          .filter((s) => s.dayOfWeek !== undefined && s.activityId === res.chat.activity.id)
-          .map((s) => ({ dayOfWeek: s.dayOfWeek!, startTime: s.startTime, endTime: s.endTime }))
-      );
     }
   }, [chatId, profile?.id]);
 
@@ -91,7 +90,6 @@ export default function ChatScreen() {
     if (socket?.connected) {
       socket.emit("chat:message", { chatId, body: input });
     } else {
-      // REST fallback per spec when the socket is unavailable.
       api.post<Message>(`/chats/${chatId}/messages`, { body: input }).then((m) => setMessages((prev) => [...prev, m]));
     }
     setInput("");
@@ -101,23 +99,45 @@ export default function ChatScreen() {
     return training.hostId === profile?.id;
   }
 
-  const activeTraining = trainings.find((t) => t.status === "scheduled");
-  const mostRecentCompleted = trainings.find((t) => t.status === "completed");
-  const eventHasPassed = activeTraining ? new Date(activeTraining.scheduledAt).getTime() <= Date.now() : false;
-  const myCompletedActive = activeTraining ? (isHostOf(activeTraining) ? activeTraining.completedByUserA : activeTraining.completedByUserB) : false;
+  function partnerSlotsFor(activityId: string): DaySlot[] {
+    if (!partner) return [];
+    return partner.availability
+      .filter((s) => s.dayOfWeek !== undefined && s.activityId === activityId)
+      .map((s) => ({ dayOfWeek: s.dayOfWeek!, startTime: s.startTime, endTime: s.endTime }));
+  }
+
+  const activeTrainings = [...trainings].filter((t) => t.status === "scheduled").sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
+  const firstTraining = trainings.find((t) => t.isFirstBetweenUsers);
+  // Case A/B (section 5): only once the pair's first-ever Event has resolved
+  // AND nothing else is currently scheduled.
+  const caseBanner = activeTrainings.length === 0 && firstTraining?.status === "completed" ? (chat?.isClosed ? "closed" : "next-session") : null;
 
   function openScheduler() {
+    if (!chat) return;
     setEditingTraining(null);
+    if (chat.sports.length > 1) {
+      setSportSelectorOpen(true);
+    } else if (chat.sports.length === 1) {
+      startScheduleFor(chat.sports[0].activityId);
+    }
+  }
+
+  function startScheduleFor(activityId: string) {
+    setSchedulingActivityId(activityId);
+    setSportSelectorOpen(false);
     setSchedulerOpen(true);
   }
 
   function openEditScheduler(training: TrainingSession) {
     setEditingTraining(training);
+    setSchedulingActivityId(training.activityId);
     setSchedulerOpen(true);
   }
 
   async function submitSchedule(values: ScheduleEventValues) {
     if (!chat) return;
+    const activityId = editingTraining?.activityId ?? schedulingActivityId;
+    if (!activityId) return;
     setScheduling(true);
     const scheduledAt = new Date(values.date);
     scheduledAt.setHours(values.time.getHours(), values.time.getMinutes(), 0, 0);
@@ -130,19 +150,43 @@ export default function ChatScreen() {
       } else {
         await api.post("/training", {
           chatId,
-          activityId: chat.activity.id,
+          activityId,
           scheduledAt: scheduledAt.toISOString(),
           locationText: values.locationText || undefined,
         });
       }
       setSchedulerOpen(false);
       setEditingTraining(null);
+      setSchedulingActivityId(null);
       setToastMessage("Event scheduled! ✓");
       await load();
     } catch (err) {
       Alert.alert("Couldn't schedule event", (err as Error).message);
     } finally {
       setScheduling(false);
+    }
+  }
+
+  // Section 4: first-ever Event between the pair gets the full Q1/Q2 sheet;
+  // every later Event (even a different sport) gets a plain confirm dialog.
+  function onCompleteTap(training: TrainingSession) {
+    if (training.isFirstBetweenUsers) {
+      setCompletingTraining(training);
+    } else {
+      Alert.alert("Mark this session as completed?", undefined, [
+        { text: "Cancel", style: "cancel" },
+        { text: "Complete", onPress: () => completeSimple(training) },
+      ]);
+    }
+  }
+
+  async function completeSimple(training: TrainingSession) {
+    try {
+      await api.post(`/training/${training.id}/complete-simple`);
+      setToastMessage("Session completed ✓");
+      await load();
+    } catch (err) {
+      Alert.alert("Couldn't complete", (err as Error).message);
     }
   }
 
@@ -181,11 +225,14 @@ export default function ChatScreen() {
     Alert.alert("Reported", "Thank you — our team will review this.");
   }
 
+  const visibleTrainings = eventsExpanded ? activeTrainings : activeTrainings.slice(0, EVENTS_COLLAPSED_LIMIT);
+  const hiddenCount = activeTrainings.length - EVENTS_COLLAPSED_LIMIT;
+
   return (
     <View style={styles.container}>
-      {/* Bug fix batch 2, Bug 2: custom header with the partner's name+photo
-          instead of a generic "Chat" title. */}
-      <View style={styles.header}>
+      {/* Bug fix batch 3, section 6: header uses the device's real safe-area
+          top inset instead of a hardcoded constant. */}
+      <View style={[styles.header, { paddingTop: insets.top, height: 64 + insets.top }]}>
         <Pressable accessibilityLabel="Back" style={styles.headerButton} onPress={() => router.back()}>
           <Text style={styles.headerBackIcon}>←</Text>
         </Pressable>
@@ -194,58 +241,67 @@ export default function ChatScreen() {
           <Text style={styles.headerName} numberOfLines={1}>
             {partner?.profile?.displayName ?? "Sport Buddy user"}
           </Text>
-          {chat && <Text style={styles.headerStatus}>{chat.activity.name}</Text>}
+          {chat && chat.sports.length > 0 && (
+            <Text style={styles.headerStatus} numberOfLines={1}>
+              {chat.sports.map((s) => s.activity.name).join(", ")}
+            </Text>
+          )}
         </View>
         <Pressable accessibilityLabel="More" style={styles.headerButton} onPress={() => setMenuOpen(true)}>
           <Text style={styles.headerMenuIcon}>⋮</Text>
         </Pressable>
       </View>
 
-      {/* Case: upcoming Event, not yet due — tap to edit. */}
-      {activeTraining && !eventHasPassed && (
-        <Pressable style={styles.banner} onPress={() => openEditScheduler(activeTraining)}>
-          <View style={styles.bannerTopRow}>
-            <Text style={styles.bannerSport}>🏅 {chat?.activity.name}</Text>
-            <View style={styles.statusPill}>
-              <Text style={styles.statusPillText}>Scheduled</Text>
-            </View>
-          </View>
-          <Text style={styles.bannerMeta}>
-            {formatBannerDate(activeTraining.scheduledAt)}
-            {activeTraining.locationText ? `  📍 ${activeTraining.locationText}` : ""}
-          </Text>
-        </Pressable>
-      )}
-
-      {/* Case: Event time has passed, this user hasn't completed it yet — the "Complete" button. */}
-      {activeTraining && eventHasPassed && !myCompletedActive && (
-        <View style={styles.banner}>
-          <View style={styles.bannerTopRow}>
-            <Text style={styles.bannerSport}>🏅 {chat?.activity.name}</Text>
-            <Pressable style={styles.completeButton} onPress={() => setCompletingTraining(activeTraining)}>
-              <Text style={styles.completeButtonLabel}>Complete</Text>
+      {/* Section 2: one banner strip per currently-scheduled Event. */}
+      {activeTrainings.length > 0 && (
+        <View style={styles.eventsArea}>
+          <ScrollView style={activeTrainings.length > 2 ? styles.eventsScroll : undefined} nestedScrollEnabled>
+            {visibleTrainings.map((training) => {
+              const eventHasPassed = new Date(training.scheduledAt).getTime() <= Date.now();
+              const myCompleted = isHostOf(training) ? training.completedByUserA : training.completedByUserB;
+              const waiting = eventHasPassed && myCompleted;
+              return (
+                <View key={training.id} style={styles.banner}>
+                  <View style={styles.bannerTopRow}>
+                    <Text style={styles.bannerSport} numberOfLines={1}>
+                      🏅 {training.activity?.name ?? "Activity"} · {formatBannerDate(training.scheduledAt)}
+                    </Text>
+                  </View>
+                  {waiting ? (
+                    <Text style={styles.bannerWaitingText}>Waiting for {partner?.profile?.displayName ?? "them"} to confirm…</Text>
+                  ) : (
+                    <View style={styles.bannerButtonRow}>
+                      <Pressable style={styles.editButton} onPress={() => openEditScheduler(training)}>
+                        <Text style={styles.editButtonLabel}>Edit</Text>
+                      </Pressable>
+                      {eventHasPassed && (
+                        <Pressable style={styles.completeButton} onPress={() => onCompleteTap(training)}>
+                          <Text style={styles.completeButtonLabel}>Complete ✓</Text>
+                        </Pressable>
+                      )}
+                    </View>
+                  )}
+                </View>
+              );
+            })}
+          </ScrollView>
+          {!eventsExpanded && hiddenCount > 0 && (
+            <Pressable style={styles.moreRow} onPress={() => setEventsExpanded(true)}>
+              <Text style={styles.moreRowText}>+ {hiddenCount} more</Text>
             </Pressable>
-          </View>
-          <Text style={styles.bannerMeta}>{formatBannerDate(activeTraining.scheduledAt)}</Text>
+          )}
         </View>
       )}
 
-      {/* Case C: this user already answered, waiting on the other side. */}
-      {activeTraining && eventHasPassed && myCompletedActive && (
-        <View style={[styles.banner, styles.bannerWaiting]}>
-          <Text style={styles.bannerWaitingText}>Waiting for {partner?.profile?.displayName ?? "them"} to confirm…</Text>
-        </View>
-      )}
-
-      {/* Case A: both said yes last time — prompt to schedule the next one. */}
-      {!activeTraining && mostRecentCompleted && !chat?.isClosed && (
+      {/* Case A: the pair's first-ever Event resolved with both wanting to continue. */}
+      {caseBanner === "next-session" && (
         <Pressable style={[styles.banner, styles.bannerNextSession]} onPress={openScheduler}>
           <Text style={styles.bannerNextSessionText}>📅 Schedule your next session</Text>
         </Pressable>
       )}
 
-      {/* Case B: chat closed — someone said no. */}
-      {!activeTraining && mostRecentCompleted && chat?.isClosed && (
+      {/* Case B: chat closed — someone said no to the first-ever Event. */}
+      {caseBanner === "closed" && (
         <View style={[styles.banner, styles.bannerClosed]}>
           <Text style={styles.bannerClosedText}>Session completed</Text>
         </View>
@@ -271,7 +327,7 @@ export default function ChatScreen() {
       />
 
       {chat?.isClosed ? (
-        <View style={styles.closedBanner}>
+        <View style={[styles.closedBanner, { paddingBottom: insets.bottom + spacing.md }]}>
           <Text style={styles.closedText}>This chat is closed to new messages.</Text>
         </View>
       ) : (
@@ -280,10 +336,20 @@ export default function ChatScreen() {
             <TextInput style={styles.input} placeholder="Message" value={input} onChangeText={setInput} onSubmitEditing={send} />
             <Button label="Send" onPress={send} />
           </View>
-          <View style={{ padding: spacing.md, paddingTop: 0 }}>
+          <View style={{ padding: spacing.md, paddingTop: 0, paddingBottom: insets.bottom + spacing.md }}>
             <Button label="Schedule Event" variant="secondary" onPress={openScheduler} />
           </View>
         </>
+      )}
+
+      {chat && (
+        <SportSelectorSheet
+          visible={sportSelectorOpen}
+          onClose={() => setSportSelectorOpen(false)}
+          sports={chat.sports}
+          scheduledActivityIds={new Set(activeTrainings.map((t) => t.activityId))}
+          onSelect={startScheduleFor}
+        />
       )}
 
       <ScheduleEventSheet
@@ -291,10 +357,11 @@ export default function ChatScreen() {
         onClose={() => {
           setSchedulerOpen(false);
           setEditingTraining(null);
+          setSchedulingActivityId(null);
         }}
         onSubmit={submitSchedule}
         submitting={scheduling}
-        partnerSlots={partnerSlots}
+        partnerSlots={schedulingActivityId ? partnerSlotsFor(schedulingActivityId) : []}
         initial={editingTraining ? { scheduledAt: editingTraining.scheduledAt, locationText: editingTraining.locationText } : null}
       />
 
@@ -340,11 +407,11 @@ export default function ChatScreen() {
   );
 }
 
-// Bug fix batch 2, Bug 3: avatar attached to the last message of a
-// consecutive run from the same sender, asymmetric bubble corners, and a
-// timestamp below the bubble. System messages ("This chat has been closed.",
-// challenge cards) render as centered pills with no avatar. The challenge
-// card additionally turns green once its linked Event's status is completed.
+// Message avatars grouped to the last message of a consecutive run from the
+// same sender; asymmetric bubble corners; a timestamp below the bubble.
+// System messages ("This chat has been closed.", completion notices, challenge
+// cards) render as centered pills with no avatar — the challenge card
+// additionally turns green once its linked Event's status is completed.
 function MessageBubble({
   message,
   mine,
@@ -396,23 +463,26 @@ function MessageBubble({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.offWhite },
-  header: { flexDirection: "row", alignItems: "center", height: 64, paddingHorizontal: spacing.xs, backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.border, gap: spacing.xs },
+  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.xs, backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.border, gap: spacing.xs },
   headerButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   headerBackIcon: { fontSize: 20, color: colors.charcoal },
   headerMenuIcon: { fontSize: 20, color: colors.charcoal },
   headerNameCol: { flex: 1, justifyContent: "center" },
   headerName: { fontFamily: typography.fontFamilyBold, fontSize: 16, color: colors.charcoal },
   headerStatus: { fontFamily: typography.fontFamilyRegular, fontSize: 12, color: colors.muted, marginTop: 2 },
+  eventsArea: { maxHeight: 160 + 36 },
+  eventsScroll: { maxHeight: 160 },
+  moreRow: { paddingVertical: spacing.xs, alignItems: "center", backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.border },
+  moreRowText: { fontFamily: typography.fontFamily, fontSize: 13, color: colors.coral },
   banner: { minHeight: 56, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.white, gap: spacing.xs, justifyContent: "center" },
   bannerTopRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  bannerSport: { fontFamily: typography.fontFamilyBold, fontSize: 14, color: colors.charcoal },
-  bannerMeta: { fontFamily: typography.fontFamilyRegular, fontSize: 13, color: colors.muted },
-  statusPill: { backgroundColor: colors.sageLight, height: 22, paddingHorizontal: 8, borderRadius: 11, justifyContent: "center" },
-  statusPillText: { fontFamily: typography.fontFamily, fontSize: 12, color: colors.sageDark },
-  completeButton: { height: 28, paddingHorizontal: 12, borderRadius: 14, backgroundColor: colors.coral, justifyContent: "center" },
+  bannerSport: { fontFamily: typography.fontFamilyBold, fontSize: 13, color: colors.charcoal, flex: 1 },
+  bannerButtonRow: { flexDirection: "row", justifyContent: "flex-end", gap: spacing.sm },
+  editButton: { height: 32, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white, justifyContent: "center" },
+  editButtonLabel: { fontFamily: typography.fontFamily, fontSize: 12, color: colors.charcoal },
+  completeButton: { height: 32, paddingHorizontal: 12, borderRadius: 16, backgroundColor: colors.sageDark, justifyContent: "center" },
   completeButtonLabel: { fontFamily: typography.fontFamilyBold, fontSize: 12, color: colors.white },
-  bannerWaiting: { backgroundColor: "#F8FAFC", alignItems: "center" },
-  bannerWaitingText: { fontFamily: typography.fontFamilyRegular, fontSize: 14, color: colors.muted, textAlign: "center" },
+  bannerWaitingText: { fontFamily: typography.fontFamilyRegular, fontSize: 13, color: colors.muted, textAlign: "center" },
   bannerNextSession: { backgroundColor: "#F0FDF4", alignItems: "center", height: 52, minHeight: 52 },
   bannerNextSessionText: { fontFamily: typography.fontFamilyBold, fontSize: 14, color: colors.sageDark },
   bannerClosed: { backgroundColor: "#F8FAFC", alignItems: "center" },

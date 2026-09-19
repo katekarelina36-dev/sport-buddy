@@ -13,7 +13,7 @@ chatsRouter.get("/", async (req: AuthedRequest, res) => {
     include: {
       userA: { include: { profile: true } },
       userB: { include: { profile: true } },
-      activity: true,
+      sports: { include: { activity: true } },
       messages: { orderBy: { createdAt: "desc" }, take: 1 },
       reads: { where: { userId: req.userId! } },
     },
@@ -39,8 +39,8 @@ chatsRouter.get("/:id", async (req: AuthedRequest, res) => {
     include: {
       userA: { include: { profile: true } },
       userB: { include: { profile: true } },
-      activity: true,
-      trainingSessions: { include: { challenge: { include: { challenge: true } } }, orderBy: { scheduledAt: "desc" } },
+      sports: { include: { activity: true } },
+      trainingSessions: { include: { challenge: { include: { challenge: true } }, activity: true }, orderBy: { scheduledAt: "desc" } },
     },
   });
   const messages = await prisma.message.findMany({

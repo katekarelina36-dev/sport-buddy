@@ -2,7 +2,11 @@ import { useState } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { colors, radii, spacing, typography } from "../theme";
 
-const DAY_LETTERS = ["S", "M", "T", "W", "T", "F", "S"]; // Sun..Sat
+// Bug fix batch 3, section 9.3: every day picker in the app renders Mon..Sun.
+// `dayOfWeek` values themselves stay JS-Date convention (0=Sun..6=Sat) — only
+// the DISPLAY order changes, via this array of dayOfWeek values in Mon..Sun order.
+const DISPLAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
+const DAY_LETTERS = ["M", "T", "W", "T", "F", "S", "S"]; // Mon..Sun
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 export interface DaySlot {
@@ -42,7 +46,8 @@ export function WeeklyAvailabilityWidget({ slots, variant = "view", selectedDay,
   return (
     <View>
       <View style={styles.week}>
-        {DAY_LETTERS.map((letter, day) => {
+        {DISPLAY_ORDER.map((day, i) => {
+          const letter = DAY_LETTERS[i];
           const hasSlot = Boolean(slotFor(day));
           const isActive = activeDay === day && hasSlot;
           return (

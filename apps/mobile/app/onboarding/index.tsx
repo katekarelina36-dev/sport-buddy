@@ -3,9 +3,10 @@ import { View, Text, TextInput, StyleSheet, Pressable, ScrollView, ActivityIndic
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "../../src/components/Button";
 import { SportAvailabilityCard, type SportSelection } from "../../src/components/SportAvailabilityCard";
-import { colors, spacing, typography, radii, topInset } from "../../src/theme";
+import { colors, spacing, typography, radii } from "../../src/theme";
 import { api, uploadPhoto } from "../../src/api/client";
 import { useAuth } from "../../src/hooks/useAuth";
 import { calculateAge, defaultDateOfBirth, MIN_ONBOARDING_AGE } from "../../src/utils/age";
@@ -21,6 +22,7 @@ const STEPS = ["name_city", "dob", "sports", "photo"] as const;
 // instead of each card expanding in place, which would misalign siblings).
 export default function OnboardingScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { refresh } = useAuth();
   const [stepIndex, setStepIndex] = useState(0);
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -157,7 +159,7 @@ export default function OnboardingScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom + spacing.md }]}>
       <View style={styles.progressTrack}>
         <View style={[styles.progressFill, { width: `${progressPct}%` }]} />
       </View>
@@ -272,7 +274,7 @@ export default function OnboardingScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.offWhite, paddingHorizontal: spacing.md, paddingTop: topInset, paddingBottom: spacing.md },
+  container: { flex: 1, backgroundColor: colors.offWhite, paddingHorizontal: spacing.md },
   progressTrack: { height: 4, backgroundColor: colors.border, borderRadius: 2, overflow: "hidden" },
   progressFill: { height: 4, backgroundColor: colors.sageDark },
   headerRow: { height: 44, justifyContent: "center", marginTop: spacing.sm },

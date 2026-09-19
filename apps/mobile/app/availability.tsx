@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { View, Text, StyleSheet, Alert, ScrollView } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { AvailabilityPicker } from "../src/components/AvailabilityPicker";
@@ -7,30 +7,21 @@ import { colors, spacing, typography } from "../src/theme";
 import { api } from "../src/api/client";
 import type { AvailabilitySlot } from "../src/api/types";
 
-// F6 screen wrapper: same component used from My Profile edit (F5) and as the
-// "Couldn't find a match?" waitlist subscribe sheet (F9), switched by `mode`.
+// F9: "Couldn't find a match?" waitlist subscribe sheet.
+// Bug fix batch 3, section 8.1: this screen's other mode (a standalone
+// general "Edit Availability" for My Profile) has been removed — availability
+// is edited inline within each sport card on the Preferred Activities screen.
 export default function AvailabilityScreen() {
-  const { mode, activityId } = useLocalSearchParams<{ mode?: string; activityId?: string }>();
+  const { activityId } = useLocalSearchParams<{ activityId?: string }>();
   const router = useRouter();
   const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
   const [saving, setSaving] = useState(false);
-  const isWaitlist = mode === "waitlist";
-
-  useEffect(() => {
-    if (!isWaitlist) {
-      api.get<AvailabilitySlot[]>("/availability").then(setSlots);
-    }
-  }, [isWaitlist]);
 
   async function save() {
     setSaving(true);
     try {
-      if (isWaitlist) {
-        await api.post("/waitlist", { activityId, availabilityWindow: { slots } });
-        Alert.alert("Subscribed", "We'll notify you when a match opens up.");
-      } else {
-        await api.put("/availability", slots);
-      }
+      await api.post("/waitlist", { activityId, availabilityWindow: { slots } });
+      Alert.alert("Subscribed", "We'll notify you when a match opens up.");
       router.back();
     } catch (err) {
       Alert.alert("Couldn't save", (err as Error).message);
@@ -41,9 +32,9 @@ export default function AvailabilityScreen() {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
-      <Text style={styles.title}>{isWaitlist ? "Choose time & get notified" : "Your availability"}</Text>
+      <Text style={styles.title}>Choose time & get notified</Text>
       <AvailabilityPicker value={slots} onChange={setSlots} />
-      <Button label={isWaitlist ? "Subscribe" : "Save"} onPress={save} disabled={saving} />
+      <Button label="Subscribe" onPress={save} disabled={saving} />
     </ScrollView>
   );
 }

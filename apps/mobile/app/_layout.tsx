@@ -2,16 +2,22 @@ import { useEffect } from "react";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { useFonts, Fraunces_400Regular, Fraunces_600SemiBold, Fraunces_700Bold } from "@expo-google-fonts/fraunces";
 import * as SplashScreen from "expo-splash-screen";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { colors } from "../src/theme";
 import { AuthProvider, useAuth } from "../src/hooks/useAuth";
 
 SplashScreen.preventAutoHideAsync();
 
+// Bug fix batch 3, section 6: SafeAreaProvider at the root so every screen's
+// useSafeAreaInsets() reflects the real device (status bar, punch-hole
+// camera, gesture nav bar) instead of a hardcoded per-platform constant.
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <RootNavigator />
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <RootNavigator />
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }
 

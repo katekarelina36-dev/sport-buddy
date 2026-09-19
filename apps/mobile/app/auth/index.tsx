@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { View, Text, TextInput, StyleSheet, Alert } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "../../src/components/Button";
-import { colors, spacing, typography, radii, topInset } from "../../src/theme";
+import { colors, spacing, typography, radii } from "../../src/theme";
 import { useAuth } from "../../src/hooks/useAuth";
 
 export default function AuthScreen() {
+  const insets = useSafeAreaInsets();
   const { login, register } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,7 +26,7 @@ export default function AuthScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom + spacing.lg }]}>
       <Text style={styles.title}>Sport Buddy</Text>
       <Text style={styles.subtitle}>Find a sport partner in a couple of clicks.</Text>
 
@@ -51,8 +53,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.offWhite,
     paddingHorizontal: spacing.lg,
-    paddingTop: topInset,
-    paddingBottom: spacing.lg,
     justifyContent: "center",
     gap: spacing.md,
   },

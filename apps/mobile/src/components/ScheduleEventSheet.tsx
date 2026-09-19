@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { View, Text, TextInput, StyleSheet, Pressable, Modal, ScrollView, Platform, Dimensions, KeyboardAvoidingView } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { colors, spacing, typography, radii } from "../theme";
 import { WeeklyAvailabilityWidget, type DaySlot } from "./WeeklyAvailabilityWidget";
@@ -29,6 +30,7 @@ interface Props {
 // location field, and a "Schedule Event" button that stays pinned to the
 // sheet's bottom instead of scrolling with the content.
 export function ScheduleEventSheet({ visible, onClose, onSubmit, submitting, partnerSlots, initial }: Props) {
+  const insets = useSafeAreaInsets();
   const [date, setDate] = useState<Date | null>(null);
   const [time, setTime] = useState<Date | null>(null);
   const [locationText, setLocationText] = useState("");
@@ -149,7 +151,7 @@ export function ScheduleEventSheet({ visible, onClose, onSubmit, submitting, par
             </View>
           </ScrollView>
 
-          <View style={styles.footer}>
+          <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
             <Pressable
               style={[styles.submitButton, !canSubmit && styles.submitButtonDisabled]}
               disabled={!canSubmit}
@@ -197,7 +199,7 @@ const styles = StyleSheet.create({
   locationInputWrap: { flexDirection: "row", alignItems: "center", height: 48, borderWidth: 1, borderColor: colors.border, borderRadius: radii.sm, paddingHorizontal: spacing.sm },
   locationPin: { fontSize: 14, marginRight: spacing.xs },
   locationInput: { flex: 1, fontFamily: typography.fontFamilyRegular, fontSize: 14, color: colors.charcoal },
-  footer: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: Platform.OS === "ios" ? spacing.xl : spacing.md },
+  footer: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
   submitButton: { height: 52, borderRadius: radii.lg, backgroundColor: colors.coral, alignItems: "center", justifyContent: "center" },
   submitButtonDisabled: { backgroundColor: colors.border },
   submitButtonLabel: { fontFamily: typography.fontFamilyBold, fontSize: 16, color: colors.white },
