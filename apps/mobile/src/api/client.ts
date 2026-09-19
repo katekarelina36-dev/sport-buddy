@@ -46,6 +46,7 @@ export const api = {
   post: <T>(path: string, body?: unknown) => request<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined }),
   patch: <T>(path: string, body?: unknown) => request<T>(path, { method: "PATCH", body: body ? JSON.stringify(body) : undefined }),
   put: <T>(path: string, body?: unknown) => request<T>(path, { method: "PUT", body: body ? JSON.stringify(body) : undefined }),
+  delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
 };
 
 // F5/F1: uploads a picked photo to POST /profile/me/photo (multipart field
@@ -55,10 +56,10 @@ export const api = {
 // bytes, and manually building a FormData with a {uri,name,type} part threw
 // "Unsupported FormData part implementation" (that RN shorthand isn't
 // supported by Expo's newer fetch/FormData polyfill).
-export async function uploadPhoto(localUri: string): Promise<{ photoUrl: string }> {
+export async function uploadPhoto(localUri: string, path: string = "/profile/me/photo"): Promise<{ photoUrl: string }> {
   const token = await getToken();
   const file = new File(localUri);
-  const result = await file.upload(`${API_URL}/profile/me/photo`, {
+  const result = await file.upload(`${API_URL}${path}`, {
     httpMethod: "POST",
     uploadType: UploadType.MULTIPART,
     fieldName: "photo",

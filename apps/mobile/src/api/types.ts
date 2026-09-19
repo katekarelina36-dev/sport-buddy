@@ -24,7 +24,14 @@ export interface FullProfile {
   permissions: { locationGranted: boolean; calendarGranted: boolean; pushGranted: boolean } | null;
   activities: UserActivity[];
   availability: AvailabilitySlot[];
-  communityMembers: { community: { id: string; name: string; iconUrl: string | null } }[];
+  communityMembers: CommunityMembership[];
+}
+
+export type CommunityRoleName = "organiser" | "assistant" | "member";
+
+export interface CommunityMembership {
+  role: CommunityRoleName;
+  community: { id: string; name: string; photoUrl: string | null; activity: Activity };
 }
 
 export interface Activity {
@@ -50,7 +57,7 @@ export interface PublicUser {
   profile: UserProfile | null;
   activities: UserActivity[];
   availability: AvailabilitySlot[];
-  communityMembers: { community: { id: string; name: string; iconUrl: string | null } }[];
+  communityMembers: CommunityMembership[];
   alreadyRequested?: boolean;
 }
 
@@ -144,4 +151,81 @@ export interface TrainingSession {
   wouldPlayAgainB: boolean | null;
   // Bug fix batch 3, section 4: full Q1/Q2 sheet vs. simple confirm.
   isFirstBetweenUsers: boolean;
+}
+
+// ------------------------------------------------------------------
+// Communities
+// ------------------------------------------------------------------
+
+export interface CommunitySummary {
+  id: string;
+  name: string;
+  photoUrl: string | null;
+  description: string | null;
+  activityId: string;
+  activity: Activity;
+  creatorId: string;
+  memberCount: number;
+  myRole: CommunityRoleName | null;
+  joinRequestPending: boolean;
+  createdAt: string;
+}
+
+export interface CommunityMemberRow {
+  communityId: string;
+  userId: string;
+  role: CommunityRoleName;
+  joinedAt: string;
+  user: { id: string; profile: UserProfile | null };
+}
+
+export interface CommunityJoinRequest {
+  id: string;
+  communityId: string;
+  requesterId: string;
+  status: "pending" | "approved" | "declined";
+  createdAt: string;
+  requester: { id: string; profile: UserProfile | null };
+}
+
+export interface ClubEventRsvp {
+  eventId: string;
+  userId: string;
+  status: "going" | "not_going";
+  user: { id: string; profile: UserProfile | null };
+}
+
+export interface ClubEvent {
+  id: string;
+  communityId: string;
+  createdBy: string;
+  title: string;
+  scheduledAt: string;
+  locationText: string | null;
+  isRecurring: boolean;
+  recurrenceRule: string | null;
+  maxParticipants: number | null;
+  status: "upcoming" | "completed" | "cancelled";
+  rsvps: ClubEventRsvp[];
+}
+
+export interface CommunityPost {
+  id: string;
+  communityId: string;
+  authorId: string;
+  body: string;
+  isPinned: boolean;
+  createdAt: string;
+  author: { id: string; profile: UserProfile | null };
+}
+
+export interface CommunityMessage {
+  id: string;
+  communityId: string;
+  senderId: string | null;
+  body: string;
+  type: "text" | "system";
+  isPinned: boolean;
+  createdAt: string;
+  sender: { id: string; profile: UserProfile | null } | null;
 }

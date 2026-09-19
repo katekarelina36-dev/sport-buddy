@@ -10,6 +10,18 @@ import { emitToUser } from "../sockets/chat.js";
 export const trainingRouter = Router();
 trainingRouter.use(requireAuth);
 
+// Create Community, "Sport" section: sports the caller has actually completed
+// an Event in (any chat), not just their preferred-activities list.
+trainingRouter.get("/completed-sports", async (req: AuthedRequest, res) => {
+  const trainings = await prisma.trainingSession.findMany({
+    where: { status: "completed", OR: [{ hostId: req.userId! }, { participantId: req.userId! }] },
+    select: { activityId: true },
+    distinct: ["activityId"],
+  });
+  const activities = await prisma.activity.findMany({ where: { id: { in: trainings.map((t) => t.activityId) } } });
+  res.json(activities);
+});
+
 // Communities: unlocks community creation at 3 completed Events (any sport).
 // Pushed to the client over the same per-user socket room used for the
 // pending-requests badge, so the celebration pop-up can appear immediately.

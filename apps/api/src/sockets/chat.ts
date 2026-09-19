@@ -42,6 +42,19 @@ export function attachChatGateway(io: Server): void {
       await prisma.chat.update({ where: { id: payload.chatId }, data: { lastMessageAt: new Date() } });
       io.to(roomFor(payload.chatId)).emit("chat:message", message);
     });
+
+    // Communities: same real-time pattern as 1:1 chat, scoped to a community room.
+    socket.on("community:join", (communityId: string) => {
+      socket.join(communityRoomFor(communityId));
+    });
+
+    socket.on("community:message", async (payload: { communityId: string; body: string }) => {
+      const message = await prisma.communityMessage.create({
+        data: { communityId: payload.communityId, senderId: socket.userId!, body: payload.body, type: "text" },
+        include: { sender: { include: { profile: true } } },
+      });
+      io.to(communityRoomFor(payload.communityId)).emit("community:message", message);
+    });
   });
 }
 
@@ -49,8 +62,16 @@ export function emitToUser(userId: string, event: string, payload: unknown): voi
   ioInstance?.to(userRoomFor(userId)).emit(event, payload);
 }
 
+export function emitToCommunity(communityId: string, event: string, payload: unknown): void {
+  ioInstance?.to(communityRoomFor(communityId)).emit(event, payload);
+}
+
 function roomFor(chatId: string): string {
   return `chat:${chatId}`;
+}
+
+function communityRoomFor(communityId: string): string {
+  return `community:${communityId}`;
 }
 
 function userRoomFor(userId: string): string {

@@ -6,6 +6,22 @@ import { requireAuth, type AuthedRequest } from "../lib/auth.js";
 export const usersRouter = Router();
 usersRouter.use(requireAuth);
 
+// Communities — "Invite members" list on Create Community: everyone the
+// caller has at least one COMPLETED Event with, any sport. Registered before
+// "/:id" so it isn't swallowed by that param route.
+usersRouter.get("/played-with", async (req: AuthedRequest, res) => {
+  const trainings = await prisma.trainingSession.findMany({
+    where: { status: "completed", OR: [{ hostId: req.userId! }, { participantId: req.userId! }] },
+    select: { hostId: true, participantId: true },
+  });
+  const otherIds = [...new Set(trainings.map((t) => (t.hostId === req.userId! ? t.participantId : t.hostId)))];
+  const users = await prisma.user.findMany({
+    where: { id: { in: otherIds } },
+    include: { profile: true },
+  });
+  res.json(users);
+});
+
 // F3: Explore Activities Feed — cards of users who have set availability for
 // the selected sport, filterable by level / day-of-week / distance. Excludes
 // blocked users (both directions) and the viewer themself.

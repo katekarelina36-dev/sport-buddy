@@ -98,6 +98,14 @@ model User {
   trainingsAsGuest   TrainingSession[]      @relation("TrainingParticipant")
   calendarIntegrations CalendarIntegration[]
   communityMembers   CommunityMember[]
+  communitiesCreated Community[]          @relation("CommunityCreator")
+  communityInvitesSent     CommunityInvitation[] @relation("CommunityInvitationInviter")
+  communityInvitesReceived CommunityInvitation[] @relation("CommunityInvitationInvitee")
+  communityJoinRequests    CommunityJoinRequest[]
+  clubEventsCreated  ClubEvent[]
+  clubEventRsvps     ClubEventRsvp[]
+  communityPosts     CommunityPost[]
+  communityMessages  CommunityMessage[]
   matchSubscriptions MatchSubscription[]
   notifications      Notification[]
   pushTokens         PushToken[]
@@ -172,6 +180,7 @@ model Activity {
   challenges        Challenge[]
   matchSubscriptions MatchSubscription[]
   chatSports        ChatSport[]
+  communities       Community[]
 }
 
 model UserActivity {
@@ -420,26 +429,150 @@ model TrainingChallenge {
 }
 
 // ------------------------------------------------------------------
-// Community layer (F15) - modeled fully now, MVP UI is read-only
+// Communities — full read-write feature (F15 was a read-only stub).
+// Unlocked once a user reaches 3 completed Events (see UserProfile /
+// bumpCompletedTrainings in routes/training.ts).
 // ------------------------------------------------------------------
 
-model Community {
-  id      String @id @default(uuid())
-  name    String
-  iconUrl String?
+enum CommunityRole {
+  organiser
+  assistant
+  member
+}
 
-  members CommunityMember[]
+enum CommunityInvitationStatus {
+  pending
+  accepted
+  declined
+}
+
+enum CommunityJoinRequestStatus {
+  pending
+  approved
+  declined
+}
+
+enum ClubEventStatus {
+  upcoming
+  completed
+  cancelled
+}
+
+enum RsvpStatus {
+  going
+  not_going
+}
+
+model Community {
+  id          String   @id @default(uuid())
+  name        String
+  activityId  String
+  activity    Activity @relation(fields: [activityId], references: [id])
+  photoUrl    String?
+  description String?
+  creatorId   String
+  creator     User     @relation("CommunityCreator", fields: [creatorId], references: [id])
+  createdAt   DateTime @default(now())
+
+  members      CommunityMember[]
+  invitations  CommunityInvitation[]
+  joinRequests CommunityJoinRequest[]
+  events       ClubEvent[]
+  posts        CommunityPost[]
+  messages     CommunityMessage[]
 }
 
 model CommunityMember {
   communityId String
-  community   Community @relation(fields: [communityId], references: [id])
+  community   Community     @relation(fields: [communityId], references: [id])
   userId      String
-  user        User      @relation(fields: [userId], references: [id])
-  isAssistant Boolean   @default(false)
-  joinedAt    DateTime  @default(now())
+  user        User          @relation(fields: [userId], references: [id])
+  role        CommunityRole @default(member)
+  joinedAt    DateTime      @default(now())
 
   @@id([communityId, userId])
+}
+
+model CommunityInvitation {
+  id            String                    @id @default(uuid())
+  communityId   String
+  community     Community                 @relation(fields: [communityId], references: [id])
+  invitedBy     String
+  inviter       User                      @relation("CommunityInvitationInviter", fields: [invitedBy], references: [id])
+  invitedUserId String
+  invitedUser   User                      @relation("CommunityInvitationInvitee", fields: [invitedUserId], references: [id])
+  status        CommunityInvitationStatus @default(pending)
+  sentAt        DateTime                  @default(now())
+  respondedAt   DateTime?
+
+  @@unique([communityId, invitedUserId])
+}
+
+model CommunityJoinRequest {
+  id          String                     @id @default(uuid())
+  communityId String
+  community   Community                  @relation(fields: [communityId], references: [id])
+  requesterId String
+  requester   User                       @relation(fields: [requesterId], references: [id])
+  status      CommunityJoinRequestStatus @default(pending)
+  createdAt   DateTime                   @default(now())
+  decidedAt   DateTime?
+
+  @@unique([communityId, requesterId, status])
+}
+
+model ClubEvent {
+  id              String           @id @default(uuid())
+  communityId     String
+  community       Community        @relation(fields: [communityId], references: [id])
+  createdBy       String
+  creator         User             @relation(fields: [createdBy], references: [id])
+  title           String
+  scheduledAt     DateTime
+  locationText    String?
+  isRecurring     Boolean          @default(false)
+  recurrenceRule  String?
+  maxParticipants Int?
+  status          ClubEventStatus  @default(upcoming)
+  createdAt       DateTime         @default(now())
+
+  rsvps ClubEventRsvp[]
+}
+
+model ClubEventRsvp {
+  eventId   String
+  event     ClubEvent  @relation(fields: [eventId], references: [id])
+  userId    String
+  user      User       @relation(fields: [userId], references: [id])
+  status    RsvpStatus @default(not_going)
+  updatedAt DateTime   @updatedAt
+
+  @@id([eventId, userId])
+}
+
+model CommunityPost {
+  id          String    @id @default(uuid())
+  communityId String
+  community   Community @relation(fields: [communityId], references: [id])
+  authorId    String
+  author      User      @relation(fields: [authorId], references: [id])
+  body        String
+  isPinned    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+}
+
+model CommunityMessage {
+  id          String      @id @default(uuid())
+  communityId String
+  community   Community   @relation(fields: [communityId], references: [id])
+  senderId    String?
+  sender      User?       @relation(fields: [senderId], references: [id])
+  body        String
+  type        MessageType @default(text)
+  isPinned    Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+
+  @@index([communityId, createdAt])
 }
 
 // ------------------------------------------------------------------
