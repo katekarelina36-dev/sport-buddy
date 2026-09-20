@@ -47,7 +47,7 @@ export function ActivityCard({ name, photoUrl, localImage, roundedTop, onPress }
         />
       )}
       <LinearGradient
-        colors={["transparent", `${colors.coral}1A`]}
+        colors={["transparent", "#FFFFFF1A"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={StyleSheet.absoluteFill}
