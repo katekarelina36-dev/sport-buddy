@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../../src/api/client";
 import { ActivityCard } from "../../src/components/ActivityCard";
 import { ActivityIcon } from "../../src/components/icons/ActivityIcon";
+import { SearchIcon } from "../../src/components/icons/SearchIcon";
 import { EXPLORE_ACTIVITIES } from "../../src/constants/exploreActivities";
 import { colors, spacing, typography, radii } from "../../src/theme";
 import type { Activity } from "../../src/api/types";
@@ -52,7 +53,9 @@ export default function HomeScreen() {
       <Text style={styles.title}>Choose your activity</Text>
 
       <View style={styles.searchWrap}>
-        <Text style={styles.searchIcon}>🔍</Text>
+        <View style={styles.searchIcon}>
+          <SearchIcon size={24} color="#94A3B8" />
+        </View>
         <TextInput
           ref={inputRef}
           style={styles.searchInput}
@@ -121,7 +124,7 @@ function HighlightedLabel({ text, query }: { text: string; query: string }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.offWhite },
-  title: { fontFamily: typography.fontFamilyRegular, fontSize: 15, color: colors.charcoal, paddingHorizontal: spacing.lg, paddingTop: spacing.md },
+  title: { fontFamily: typography.fontFamilyRegular, fontSize: 45, color: colors.charcoal, textAlign: "center", paddingHorizontal: spacing.lg, paddingTop: spacing.md },
   searchWrap: {
     flexDirection: "row",
     alignItems: "center",
@@ -134,7 +137,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     backgroundColor: colors.white,
   },
-  searchIcon: { fontSize: 14, marginRight: spacing.xs, color: "#94A3B8" },
+  searchIcon: { position: "relative", width: 24, height: 24, marginRight: spacing.xs },
   searchInput: { flex: 1, fontFamily: typography.fontFamilyRegular, fontSize: 14, color: colors.charcoal },
   clearButton: { width: 44, height: 44, marginRight: -14, alignItems: "center", justifyContent: "center" },
   clearButtonIcon: { fontSize: 18, color: "#94A3B8" },
