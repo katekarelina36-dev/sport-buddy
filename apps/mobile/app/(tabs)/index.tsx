@@ -134,7 +134,7 @@ function HighlightedLabel({ text, query }: { text: string; query: string }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.offWhite },
-  title: { fontFamily: typography.fontFamilyRegular, fontSize: 29.25, color: colors.charcoal, textAlign: "center", paddingHorizontal: spacing.lg, paddingTop: spacing.md },
+  title: { fontFamily: typography.fontFamilyRegular, fontSize: 29.25, color: colors.charcoal, textAlign: "center", paddingHorizontal: spacing.lg, paddingTop: 20 },
   searchWrap: {
     flexDirection: "row",
     alignItems: "center",
