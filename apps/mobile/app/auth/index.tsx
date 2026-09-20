@@ -7,6 +7,7 @@ import { colors, spacing, typography, radii } from "../../src/theme";
 import { useAuth } from "../../src/hooks/useAuth";
 
 const loginBg = require("../../assets/login-bg.webp");
+const logo = require("../../assets/logo.png");
 // Focal point is the handshake, roughly centered horizontally and just
 // below the net vertically in the source photo — keep it in frame across
 // every device aspect ratio instead of a naive center-crop.
@@ -43,7 +44,7 @@ export default function AuthScreen() {
       />
 
       <View style={styles.content}>
-        <Text style={styles.title}>Teameo</Text>
+        <Image source={logo} style={styles.logo} contentFit="contain" />
         <Text style={styles.subtitle}>Find a sport partner in a couple of clicks.</Text>
 
         <TextInput
@@ -90,9 +91,9 @@ const styles = StyleSheet.create({
   },
   content: {
     gap: spacing.md,
-    marginTop: -320,
+    marginTop: -240,
   },
-  title: { fontFamily: typography.fontFamilyBold, fontSize: 32, color: colors.charcoal, textAlign: "center" },
+  logo: { width: 220, height: 123, alignSelf: "center", marginTop: 120 },
   subtitle: { fontFamily: typography.fontFamilyRegular, color: colors.muted, textAlign: "center", marginBottom: spacing.lg },
   input: {
     backgroundColor: colors.white,

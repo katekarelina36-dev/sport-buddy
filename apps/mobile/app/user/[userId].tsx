@@ -10,6 +10,7 @@ import { WeeklyAvailabilityWidget } from "../../src/components/WeeklyAvailabilit
 import { SendActivityRequestSheet } from "../../src/components/SendActivityRequestSheet";
 import { colors, spacing, typography, radii } from "../../src/theme";
 import { calculateAge } from "../../src/utils/age";
+import { capitalize } from "../../src/utils/capitalize";
 import type { PublicUser } from "../../src/api/types";
 
 // F4 (Round 2): full public profile detail, reached by tapping a card in F3.
@@ -89,7 +90,7 @@ export default function UserProfileScreen() {
             <View style={styles.sportHeaderRow}>
               <Text style={styles.sportIcon}>🏅</Text>
               <Text style={styles.sportName}>{primaryActivity.activity.name}</Text>
-              <Badge label={primaryActivity.level} tone="neutral" />
+              <Badge label={capitalize(primaryActivity.level)} tone="neutral" />
             </View>
             <View style={{ marginTop: spacing.md }}>
               <WeeklyAvailabilityWidget slots={primarySlots} variant="view" />
@@ -104,7 +105,7 @@ export default function UserProfileScreen() {
               <View key={a.activityId} style={styles.otherSportRow}>
                 <Text style={styles.sportIconSmall}>🏅</Text>
                 <Text style={styles.otherSportName}>{a.activity.name}</Text>
-                <Badge label={a.level} tone="neutral" />
+                <Badge label={capitalize(a.level)} tone="neutral" />
               </View>
             ))}
           </>

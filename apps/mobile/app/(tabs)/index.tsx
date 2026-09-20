@@ -131,12 +131,12 @@ export default function HomeScreen() {
           keyExtractor={(a) => a.id}
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={<Text style={styles.empty}>No activities match "{query}"</Text>}
-          renderItem={({ item, index }) => (
+          renderItem={({ item }) => (
             <ActivityCard
               name={item.name}
               photoUrl={item.iconUrl}
               localImage={item.name === "Padel" ? PADEL_IMAGE : undefined}
-              roundedTop={index === 0}
+              imageFocalPoint={item.name === "Padel" ? { top: "0%", left: "30%" } : undefined}
               onPress={() => handleSportSelect(item)}
             />
           )}
@@ -198,6 +198,6 @@ const styles = StyleSheet.create({
   dropdownRowLast: { borderBottomWidth: 0 },
   dropdownRowLabel: { fontFamily: typography.fontFamilyRegular, fontSize: 15, color: colors.charcoal },
   dropdownRowLabelMatch: { fontFamily: typography.fontFamilyBold, color: colors.coral },
-  listContent: { paddingTop: 30, paddingBottom: spacing.xl },
+  listContent: { paddingHorizontal: spacing.lg, paddingTop: 30, paddingBottom: spacing.xl, gap: spacing.md },
   empty: { fontFamily: typography.fontFamilyRegular, color: colors.muted, textAlign: "center", marginTop: spacing.xl },
 });

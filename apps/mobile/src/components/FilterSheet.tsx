@@ -2,6 +2,7 @@ import { useState } from "react";
 import { View, Text, Modal, Pressable, StyleSheet } from "react-native";
 import { Button } from "./Button";
 import { colors, radii, spacing, typography } from "../theme";
+import { capitalize } from "../utils/capitalize";
 import type { SkillLevel } from "../api/types";
 
 const LEVELS: SkillLevel[] = ["beginner", "intermediate", "advanced", "pro"];
@@ -49,7 +50,7 @@ export function FilterSheet({ visible, value, onApply, onClose }: Props) {
                 style={[styles.pill, selected && styles.pillSelected]}
                 onPress={() => setDraft((d) => ({ ...d, levels: toggle(d.levels, level) }))}
               >
-                <Text style={[styles.pillLabel, selected && styles.pillLabelSelected]}>{level}</Text>
+                <Text style={[styles.pillLabel, selected && styles.pillLabelSelected]}>{capitalize(level)}</Text>
               </Pressable>
             );
           })}

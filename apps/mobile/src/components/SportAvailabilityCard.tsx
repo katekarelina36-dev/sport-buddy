@@ -2,6 +2,7 @@ import { useState } from "react";
 import { View, Text, StyleSheet, Pressable, Platform } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { colors, spacing, radii, typography } from "../theme";
+import { capitalize } from "../utils/capitalize";
 import type { SkillLevel } from "../api/types";
 
 export const LEVELS: SkillLevel[] = ["beginner", "intermediate", "advanced", "pro"];
@@ -57,7 +58,7 @@ export function SportAvailabilityCard({ activityName, sport, onSetLevel, onToggl
             style={[styles.levelPill, sport.level === level && styles.levelPillSelected]}
             onPress={() => onSetLevel(level)}
           >
-            <Text style={[styles.levelPillLabel, sport.level === level && styles.levelPillLabelSelected]}>{level}</Text>
+            <Text style={[styles.levelPillLabel, sport.level === level && styles.levelPillLabelSelected]}>{capitalize(level)}</Text>
           </Pressable>
         ))}
       </View>
