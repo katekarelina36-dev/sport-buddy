@@ -55,7 +55,7 @@ export function SportAvailabilityCard({
 }: Props) {
   return (
     <View style={styles.card}>
-      <Pressable style={styles.titleRow} onPress={onToggleExpanded} disabled={!onToggleExpanded}>
+      <View style={styles.titleRow}>
         <Text style={styles.title}>{activityName}</Text>
         <View style={styles.titleRowRight}>
           {!expanded && <Text style={styles.collapsedLevel}>{sport.level}</Text>}
@@ -65,12 +65,16 @@ export function SportAvailabilityCard({
             </Pressable>
           )}
           {onToggleExpanded && (
-            <Text accessibilityLabel={expanded ? "Collapse" : "Expand"} style={styles.chevron}>
-              {expanded ? "︿" : "﹀"}
-            </Text>
+            <Pressable
+              accessibilityLabel={expanded ? "Collapse" : "Expand"}
+              onPress={onToggleExpanded}
+              style={styles.chevronButton}
+            >
+              <Text style={styles.chevron}>{expanded ? "︿" : "﹀"}</Text>
+            </Pressable>
           )}
         </View>
-      </Pressable>
+      </View>
 
       {expanded && (
         <>
@@ -193,6 +197,7 @@ const styles = StyleSheet.create({
   titleRowRight: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   collapsedLevel: { fontFamily: typography.fontFamilyRegular, fontSize: 13, color: colors.muted, textTransform: "capitalize" },
   chevron: { fontSize: 14, color: colors.muted },
+  chevronButton: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
   removeButton: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
   removeIcon: { fontSize: 16, color: colors.muted },
   label: { fontFamily: typography.fontFamilyRegular, fontSize: 13, color: colors.muted },
