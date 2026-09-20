@@ -36,7 +36,7 @@ export default function ChatsScreen() {
           const timestamp = new Date(item.lastMessageAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
           return (
             <Pressable style={styles.row} onPress={() => router.push(`/chat/${item.id}`)}>
-              <Avatar photoUrl={partner.profile?.photoUrl} size={48} />
+              <Avatar photoUrl={partner.profile?.photoUrl} size={56} />
               <View style={styles.center}>
                 <View style={styles.nameRow}>
                   <Text style={styles.name} numberOfLines={1}>
@@ -48,20 +48,15 @@ export default function ChatsScreen() {
                     </View>
                   )}
                 </View>
-                <Text style={styles.preview} numberOfLines={1}>
+                <Text style={styles.preview} numberOfLines={2}>
                   {item.messages[0]?.body ?? "Say hello!"}
                 </Text>
               </View>
               <View style={styles.right}>
                 <Text style={styles.timestamp}>{timestamp}</Text>
-                {item.unreadCount > 0 ? (
+                {item.unreadCount > 0 && (
                   <View style={styles.badge}>
                     <Text style={styles.badgeText}>{item.unreadCount}</Text>
-                  </View>
-                ) : (
-                  <View style={styles.iconRow}>
-                    <Text style={styles.rowIcon}>💬</Text>
-                    <Text style={styles.rowIcon}>🔔</Text>
                   </View>
                 )}
               </View>
@@ -78,24 +73,31 @@ const styles = StyleSheet.create({
   title: { fontFamily: typography.fontFamilyBold, fontSize: 24, color: colors.charcoal, paddingHorizontal: spacing.lg, paddingTop: spacing.sm, marginBottom: spacing.sm },
   row: {
     flexDirection: "row",
-    alignItems: "center",
-    height: 72,
+    alignItems: "flex-start",
+    height: 108,
     paddingHorizontal: spacing.lg,
+    paddingVertical: 20,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     backgroundColor: colors.offWhite,
   },
-  center: { flex: 1, marginLeft: spacing.sm, marginRight: spacing.sm },
+  center: { flex: 1, marginLeft: 14, marginRight: spacing.sm },
   nameRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
   name: { fontFamily: typography.fontFamilyBold, fontSize: 15, color: colors.charcoal, flexShrink: 1 },
   closedPill: { backgroundColor: colors.borderSubtle, borderRadius: 10, paddingHorizontal: 8, height: 18, justifyContent: "center" },
   closedPillText: { fontFamily: typography.fontFamilyRegular, fontSize: 10, color: colors.muted },
-  preview: { fontFamily: typography.fontFamilyRegular, color: colors.muted, fontSize: 13, marginTop: 2 },
-  right: { alignItems: "flex-end", gap: 6 },
+  preview: { fontFamily: typography.fontFamilyRegular, color: colors.muted, fontSize: 13, marginTop: 4, lineHeight: 18 },
+  right: { alignItems: "flex-end", paddingTop: 4 },
   timestamp: { fontFamily: typography.fontFamilyRegular, fontSize: 11, color: colors.textMuted },
-  iconRow: { flexDirection: "row", gap: 8 },
-  rowIcon: { fontSize: 18, color: colors.textMuted },
-  badge: { backgroundColor: colors.coral, borderRadius: 10, minWidth: 20, height: 20, alignItems: "center", justifyContent: "center", paddingHorizontal: 4 },
+  badge: {
+    backgroundColor: colors.coral,
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 6,
+  },
   badgeText: { color: colors.textOnDark, fontSize: 11, fontFamily: typography.fontFamilyBold },
   empty: { fontFamily: typography.fontFamilyRegular, color: colors.muted, textAlign: "center", marginTop: spacing.xl },
 });
