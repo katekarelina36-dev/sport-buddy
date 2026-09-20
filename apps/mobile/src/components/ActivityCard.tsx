@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: typography.fontFamilyBold,
     fontSize: 40,
-    color: "#04001D",
+    color: colors.textOnDark,
     textShadowColor: "rgba(0,0,0,0.35)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 4,
