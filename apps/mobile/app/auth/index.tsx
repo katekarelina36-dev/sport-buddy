@@ -90,7 +90,7 @@ const styles = StyleSheet.create({
   },
   content: {
     gap: spacing.md,
-    marginTop: -92,
+    marginTop: -400,
   },
   title: { fontFamily: typography.fontFamilyBold, fontSize: 32, color: colors.charcoal, textAlign: "center" },
   subtitle: { fontFamily: typography.fontFamilyRegular, color: colors.muted, textAlign: "center", marginBottom: spacing.lg },
