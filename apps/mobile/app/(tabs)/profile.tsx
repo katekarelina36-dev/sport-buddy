@@ -102,7 +102,7 @@ export default function ProfileScreen() {
                     <Pressable
                       key={a.activityId}
                       style={[styles.sportRow, odd ? styles.rowTintPrimary : styles.rowTintSecondary]}
-                      onPress={() => router.push({ pathname: "/profile/edit", params: { initialExpandedActivity: a.activityId } })}
+                      onPress={() => router.push("/profile/edit")}
                     >
                       <View style={styles.sportIconBadge}>
                         <ActivityIcon name={a.activity.name} size={18} />
