@@ -12,7 +12,8 @@
     "prisma:seed": "tsx prisma/seed.ts",
     "ingest:custom-sport-images": "tsx scripts/ingestCustomSportImages.ts",
     "download:sport-images": "tsx scripts/downloadSportImages.ts",
-    "approve:pending-requests": "tsx scripts/approvePendingRequests.ts"
+    "approve:pending-requests": "tsx scripts/approvePendingRequests.ts",
+    "reset:bob-partners": "tsx scripts/resetBobPartners.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0",
