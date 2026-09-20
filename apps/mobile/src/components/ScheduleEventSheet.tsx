@@ -305,7 +305,11 @@ const styles = StyleSheet.create({
   calendarMonthLabel: { fontFamily: typography.fontFamilyBold, fontSize: 14, color: colors.charcoal },
   calendarWeekRow: { flexDirection: "row", marginTop: spacing.sm },
   calendarWeekLetter: { width: CELL_SIZE, textAlign: "center", fontFamily: typography.fontFamilyRegular, fontSize: 12, color: colors.textMuted },
-  calendarGrid: { flexDirection: "row", flexWrap: "wrap" },
+  // Without an explicit width, flexWrap packs however many CELL_SIZE cells
+  // fit the available screen width (e.g. 8-9 on a wide device) instead of
+  // wrapping every 7 to match the fixed 7-column weekday header, drifting
+  // dates out from under their correct column.
+  calendarGrid: { flexDirection: "row", flexWrap: "wrap", width: CELL_SIZE * 7 },
   calendarCell: { width: CELL_SIZE, height: CELL_SIZE, alignItems: "center", justifyContent: "center" },
   calendarDayCircle: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
   calendarDayCircleSelected: { backgroundColor: colors.coral },
