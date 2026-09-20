@@ -103,5 +103,5 @@ const styles = StyleSheet.create({
     minHeight: 44,
     fontFamily: typography.fontFamilyRegular,
   },
-  switchLink: { textAlign: "center", color: colors.sageDark, fontFamily: typography.fontFamily, marginTop: spacing.sm, opacity: 0.8 },
+  switchLink: { textAlign: "center", color: "#D5AC04", fontFamily: typography.fontFamily, marginTop: spacing.sm, opacity: 0.8 },
 });
