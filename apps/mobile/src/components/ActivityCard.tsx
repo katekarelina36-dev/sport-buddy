@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 40,
     borderTopRightRadius: 40,
   },
-  photo: { opacity: 0.2 },
+  photo: { opacity: 0.1 },
   label: {
     fontFamily: typography.fontFamilyBold,
     fontSize: 40,
