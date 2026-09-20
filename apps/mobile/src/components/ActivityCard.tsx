@@ -62,9 +62,9 @@ export function ActivityCard({ name, photoUrl, localImage, roundedTop, onPress }
       <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
         <Defs>
           <RadialGradient id={gradientId} cx="50%" cy="50%" rx="45%" ry="30%">
-            <Stop offset="0%" stopColor={OVERLAY_TINT} stopOpacity={0.2} />
-            <Stop offset="50%" stopColor={OVERLAY_TINT} stopOpacity={0.14} />
-            <Stop offset="100%" stopColor={OVERLAY_TINT} stopOpacity={0.08} />
+            <Stop offset="0%" stopColor={OVERLAY_TINT} stopOpacity={0.16} />
+            <Stop offset="50%" stopColor={OVERLAY_TINT} stopOpacity={0.112} />
+            <Stop offset="100%" stopColor={OVERLAY_TINT} stopOpacity={0.064} />
           </RadialGradient>
         </Defs>
         <Rect x={0} y={0} width="100%" height="100%" fill={`url(#${gradientId})`} />
