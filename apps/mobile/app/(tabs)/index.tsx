@@ -172,5 +172,5 @@ const styles = StyleSheet.create({
   dropdownRowLabel: { fontFamily: typography.fontFamilyRegular, fontSize: 15, color: colors.charcoal },
   dropdownRowLabelMatch: { fontFamily: typography.fontFamilyBold, color: colors.coral },
   dimmed: { opacity: 0.4 },
-  listContent: { paddingTop: spacing.md, paddingBottom: spacing.xl },
+  listContent: { paddingTop: 30, paddingBottom: spacing.xl },
 });

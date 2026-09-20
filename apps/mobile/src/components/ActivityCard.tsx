@@ -69,11 +69,11 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 40,
     borderTopRightRadius: 40,
   },
-  photo: { opacity: 0.3 },
+  photo: { opacity: 0.8 },
   label: {
     fontFamily: typography.fontFamilyBold,
     fontSize: 40,
-    color: "#04001D",
+    color: colors.textOnDark,
     textShadowColor: "rgba(0,0,0,0.35)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 4,
