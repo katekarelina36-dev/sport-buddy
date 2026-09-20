@@ -4,7 +4,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { api } from "../../src/api/client";
 import { Card } from "../../src/components/Card";
 import { Button } from "../../src/components/Button";
-import { Badge } from "../../src/components/Badge";
+import { SentRequestCard } from "../../src/components/SentRequestCard";
 import { colors, spacing, typography } from "../../src/theme";
 import type { ActivityRequest } from "../../src/api/types";
 
@@ -88,19 +88,13 @@ export default function RequestsScreen() {
           renderItem={({ item }) => {
             const recipientProfile = item.post?.author.profile ?? item.targetUser?.profile;
             return (
-              <Card style={[{ gap: spacing.sm }, item.status === "approved" && styles.approvedCard]}>
-                <View style={styles.cardHeader}>
-                  <Text style={styles.name}>{recipientProfile?.displayName}</Text>
-                  <Badge label={item.status === "approved" ? "Approved" : "Pending"} tone={item.status === "approved" ? "sage" : "coral"} />
-                </View>
-                <Text style={styles.meta}>
-                  {item.activity.name}
-                  {item.slot ? ` · ${new Date(item.slot.date).toDateString()} ${item.slot.startTime}` : ""}
-                </Text>
-                {item.status === "approved" && item.chatId && (
-                  <Button label="Start a chat" onPress={() => router.push(`/chat/${item.chatId}`)} />
-                )}
-              </Card>
+              <SentRequestCard
+                name={recipientProfile?.displayName ?? ""}
+                activityName={item.activity.name}
+                photoUrl={recipientProfile?.photoUrl}
+                status={item.status === "approved" ? "approved" : "pending"}
+                onStartChat={item.chatId ? () => router.push(`/chat/${item.chatId}`) : undefined}
+              />
             );
           }}
         />
@@ -119,7 +113,5 @@ const styles = StyleSheet.create({
   name: { fontFamily: typography.fontFamily, fontSize: 16, color: colors.charcoal },
   meta: { fontFamily: typography.fontFamilyRegular, color: colors.muted, fontSize: 13 },
   row: { flexDirection: "row", gap: spacing.sm },
-  cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  approvedCard: { backgroundColor: colors.sageLight },
   empty: { fontFamily: typography.fontFamilyRegular, color: colors.muted, textAlign: "center", marginTop: spacing.xl },
 });
