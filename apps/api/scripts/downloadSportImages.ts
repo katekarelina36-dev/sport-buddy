@@ -53,9 +53,13 @@ function slug(name: string): string {
 }
 
 interface UnsplashRandomResponse {
-  urls?: { regular: string };
+  urls?: { raw: string };
 }
 
+// Round 10, Fix 3A: `regular` (1080px, but Unsplash also compresses it
+// harder) looked blurry once stretched across a full-width card — `raw` +
+// explicit crop params gives a controlled, sharp 800×400 straight from
+// Unsplash's own resizer instead.
 async function fetchAndStore(activity: { id: string; name: string }): Promise<void> {
   const query = encodeURIComponent(QUERY_OVERRIDES[activity.name] ?? `${activity.name} sport`);
   const apiUrl = `https://api.unsplash.com/photos/random?query=${query}&orientation=landscape`;
@@ -66,12 +70,12 @@ async function fetchAndStore(activity: { id: string; name: string }): Promise<vo
     return;
   }
   const data = (await apiRes.json()) as UnsplashRandomResponse;
-  if (!data.urls?.regular) {
+  if (!data.urls?.raw) {
     console.error(`✗ ${activity.name}: no image found`);
     return;
   }
 
-  const imageRes = await fetch(data.urls.regular);
+  const imageRes = await fetch(`${data.urls.raw}&w=800&h=400&fit=crop&q=85`);
   const buffer = Buffer.from(await imageRes.arrayBuffer());
 
   const url = await mediaDriver.store("system", `sport-${slug(activity.name)}.jpg`, buffer);

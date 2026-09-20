@@ -91,12 +91,16 @@ export default function CommunitiesListScreen() {
   );
 }
 
+// Round 10, Fix 3B: swapped the plain dark gradient for a brand-tinted pair —
+// a barely-visible full-card blue wash plus a bottom gradient in the same
+// blue (instead of black) for text contrast.
 function CardOverlay({ item }: { item: CommunitySummary }) {
   return (
     <>
+      <View style={[StyleSheet.absoluteFill, styles.brandTint]} />
       <LinearGradient
-        colors={["transparent", "rgba(0,0,0,0.15)", "rgba(0,0,0,0.65)"]}
-        locations={[0, 0.4, 1]}
+        colors={["transparent", "rgba(0,49,97,0.20)", "rgba(0,49,97,0.70)"]}
+        locations={[0, 0.5, 1]}
         style={StyleSheet.absoluteFill}
       />
       <View style={styles.sportPill}>
@@ -131,7 +135,8 @@ const styles = StyleSheet.create({
   searchIcon: { fontSize: 14, marginRight: spacing.xs },
   searchInput: { flex: 1, fontFamily: typography.fontFamilyRegular, fontSize: 14, color: colors.charcoal },
   card: { height: 160, borderRadius: 16, overflow: "hidden", marginBottom: spacing.md, marginHorizontal: spacing.md },
-  cardImage: { flex: 1, justifyContent: "flex-end" },
+  cardImage: { flex: 1, width: "100%", height: "100%", justifyContent: "flex-end" },
+  brandTint: { backgroundColor: "rgba(0,49,97,0.25)" },
   sportPill: {
     position: "absolute",
     top: 12,

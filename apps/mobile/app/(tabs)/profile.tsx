@@ -86,16 +86,11 @@ export default function ProfileScreen() {
       <ScrollView contentContainerStyle={styles.tabContent}>
         {tab === "activities" ? (
           <>
-            <View style={styles.tabHeaderRow}>
-              <Pressable style={styles.editPill} onPress={() => router.push("/profile/activities")}>
-                <Text style={styles.editPillLabel}>Edit</Text>
-              </Pressable>
-            </View>
             {profile.activities.length === 0 ? (
               <View style={styles.emptyState}>
                 <Text style={styles.emptyText}>No preferred activities yet.</Text>
-                <Pressable onPress={() => router.push("/profile/activities")}>
-                  <Text style={styles.emptyCta}>Edit</Text>
+                <Pressable onPress={() => router.push("/profile/edit")}>
+                  <Text style={styles.emptyCta}>Edit Profile</Text>
                 </Pressable>
               </View>
             ) : (
@@ -111,7 +106,7 @@ export default function ProfileScreen() {
                       <View style={styles.sportRowCenter}>
                         <Text style={styles.sportRowName}>{a.activity.name}</Text>
                         {Boolean(availability) && (
-                          <Text style={styles.sportRowAvailability} numberOfLines={1}>
+                          <Text style={styles.sportRowAvailability} numberOfLines={2}>
                             {availability}
                           </Text>
                         )}
@@ -239,9 +234,6 @@ const styles = StyleSheet.create({
   tabLabel: { fontFamily: typography.fontFamilyRegular, fontSize: 14, color: colors.muted },
   tabLabelActive: { fontFamily: typography.fontFamilyBold, color: colors.coral },
   tabContent: { paddingTop: spacing.md, paddingBottom: 96, flexGrow: 1 },
-  tabHeaderRow: { flexDirection: "row", justifyContent: "flex-end", marginBottom: spacing.md, paddingHorizontal: spacing.lg },
-  editPill: { height: 32, paddingHorizontal: 14, borderRadius: 16, borderWidth: 1.5, borderColor: colors.coral, backgroundColor: colors.white, alignItems: "center", justifyContent: "center" },
-  editPillLabel: { fontFamily: typography.fontFamilyBold, fontSize: 13, color: colors.coral },
   emptyState: { alignItems: "center", paddingVertical: spacing.xl, gap: spacing.sm, paddingHorizontal: spacing.lg },
   emptyText: { fontFamily: typography.fontFamilyRegular, fontSize: 14, color: colors.muted, textAlign: "center" },
   emptyCta: { fontFamily: typography.fontFamilyBold, fontSize: 14, color: colors.coral },
@@ -253,14 +245,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
-    height: 64,
+    minHeight: 96,
     paddingHorizontal: 16,
+    paddingVertical: 18,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderSubtle,
   },
-  sportIconBadge: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.white, alignItems: "center", justifyContent: "center" },
+  sportIconBadge: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.white, alignItems: "center", justifyContent: "center" },
   sportRowCenter: { flex: 1 },
-  sportRowName: { fontFamily: typography.fontFamilyBold, fontSize: 15, color: colors.charcoal },
+  sportRowName: { fontFamily: typography.fontFamilyBold, fontSize: 16, color: colors.charcoal },
   sportRowAvailability: { fontFamily: typography.fontFamilyRegular, fontSize: 13, color: colors.muted, marginTop: 2 },
   levelBadge: { backgroundColor: colors.secondaryTint2, height: 22, paddingHorizontal: 10, borderRadius: 11, justifyContent: "center" },
   levelBadgeLabel: { fontFamily: typography.fontFamilyRegular, fontSize: 12, color: colors.sageDark },

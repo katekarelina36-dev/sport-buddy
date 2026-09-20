@@ -10,7 +10,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name init",
     "prisma:seed": "tsx prisma/seed.ts",
-    "download:sport-images": "tsx scripts/downloadSportImages.ts"
+    "download:sport-images": "tsx scripts/downloadSportImages.ts",
+    "approve:pending-requests": "tsx scripts/approvePendingRequests.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0",
