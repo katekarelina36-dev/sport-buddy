@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     marginTop: -240,
   },
-  logo: { width: 220, height: 123, alignSelf: "center" },
+  logo: { width: 220, height: 123, alignSelf: "center", marginTop: 60 },
   subtitle: { fontFamily: typography.fontFamilyRegular, color: colors.muted, textAlign: "center", marginBottom: spacing.lg },
   input: {
     backgroundColor: colors.white,
