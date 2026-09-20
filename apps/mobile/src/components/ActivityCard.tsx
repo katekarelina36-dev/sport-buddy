@@ -1,4 +1,4 @@
-import { Pressable, Text, StyleSheet } from "react-native";
+import { Pressable, Text, StyleSheet, type ImageSourcePropType } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { resolveMediaUrl } from "../api/client";
@@ -7,6 +7,7 @@ import { colors, typography } from "../theme";
 interface Props {
   name: string;
   photoUrl?: string | null;
+  localImage?: ImageSourcePropType;
   roundedTop?: boolean;
   onPress: () => void;
 }
@@ -22,16 +23,12 @@ export const ACTIVITY_CARD_HEIGHT = 140;
 // individual tiles.
 // The photo comes from Activity.iconUrl (downloaded from Unsplash once and
 // stored via the media pipeline — see apps/api/scripts/downloadSportImages.ts
-// — never fetched from Unsplash at runtime); a sport with no photo yet falls
-// back to a flat brand-gradient tile.
-//
-// A previous version drew the photo at 20% opacity *and* topped it with a
-// gradient starting at a fully-OPAQUE offWhite — opaque-over-faint hid the
-// photo almost entirely, which read as "images not loading" even though the
-// URL resolved fine. Fixed by keeping the photo at full opacity and starting
-// the wash gradient fully transparent, matching the Communities card.
-export function ActivityCard({ name, photoUrl, roundedTop, onPress }: Props) {
+// — never fetched from Unsplash at runtime); `localImage` is a bundled
+// fallback for a sport the pipeline hasn't picked up a photo for yet (e.g.
+// Padel). A sport with neither falls back to a flat brand-gradient tile.
+export function ActivityCard({ name, photoUrl, localImage, roundedTop, onPress }: Props) {
   const uri = resolveMediaUrl(photoUrl);
+  const source: ImageSourcePropType | undefined = uri ? { uri } : localImage;
   return (
     <Pressable
       accessibilityRole="button"
@@ -39,8 +36,8 @@ export function ActivityCard({ name, photoUrl, roundedTop, onPress }: Props) {
       onPress={onPress}
       style={[styles.card, roundedTop && styles.roundedTop]}
     >
-      {uri ? (
-        <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="cover" />
+      {source ? (
+        <Image source={source} style={[StyleSheet.absoluteFill, styles.photo]} contentFit="cover" />
       ) : (
         <LinearGradient
           colors={[colors.coral, colors.sageDark]}
@@ -72,9 +69,10 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 40,
     borderTopRightRadius: 40,
   },
+  photo: { opacity: 0.6 },
   label: {
     fontFamily: typography.fontFamilyBold,
-    fontSize: 20,
+    fontSize: 40,
     color: colors.textOnDark,
     textShadowColor: "rgba(0,0,0,0.35)",
     textShadowOffset: { width: 0, height: 1 },

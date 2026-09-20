@@ -7,6 +7,10 @@ import { ActivityCard } from "../../src/components/ActivityCard";
 import { ActivityIcon } from "../../src/components/icons/ActivityIcon";
 import { SearchIcon } from "../../src/components/icons/SearchIcon";
 import { EXPLORE_ACTIVITIES } from "../../src/constants/exploreActivities";
+
+// No photo pipeline entry for Padel yet — bundled fallback so its card
+// isn't stuck on the flat gradient tile.
+const PADEL_IMAGE = require("../../assets/activities/padel.jpg");
 import { colors, spacing, typography, radii } from "../../src/theme";
 import type { Activity } from "../../src/api/types";
 
@@ -102,7 +106,13 @@ export default function HomeScreen() {
           keyExtractor={(a) => a.id}
           contentContainerStyle={styles.listContent}
           renderItem={({ item, index }) => (
-            <ActivityCard name={item.name} photoUrl={item.iconUrl} roundedTop={index === 0} onPress={() => goToFeed(item)} />
+            <ActivityCard
+              name={item.name}
+              photoUrl={item.iconUrl}
+              localImage={item.name === "Padel" ? PADEL_IMAGE : undefined}
+              roundedTop={index === 0}
+              onPress={() => goToFeed(item)}
+            />
           )}
         />
       </View>
@@ -124,7 +134,7 @@ function HighlightedLabel({ text, query }: { text: string; query: string }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.offWhite },
-  title: { fontFamily: typography.fontFamilyRegular, fontSize: 45, color: colors.charcoal, textAlign: "center", paddingHorizontal: spacing.lg, paddingTop: spacing.md },
+  title: { fontFamily: typography.fontFamilyRegular, fontSize: 22.5, color: colors.charcoal, textAlign: "center", paddingHorizontal: spacing.lg, paddingTop: spacing.md },
   searchWrap: {
     flexDirection: "row",
     alignItems: "center",
