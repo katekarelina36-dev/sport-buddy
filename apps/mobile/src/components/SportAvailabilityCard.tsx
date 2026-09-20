@@ -27,6 +27,11 @@ const MAX_PARTICIPANTS = 20;
 interface Props {
   activityName: string;
   sport: SportSelection;
+  // Both optional and default to "always expanded, not collapsible" so the
+  // F1 onboarding usage (which doesn't pass these) is unaffected. Only the
+  // F5 Preferred Activities editor opts into collapse/expand.
+  expanded?: boolean;
+  onToggleExpanded?: () => void;
   onSetLevel: (level: SkillLevel) => void;
   onToggleDay: (dayOfWeek: number) => void;
   onSetDayTime: (dayOfWeek: number, field: "startTime" | "endTime", value: string) => void;
@@ -37,77 +42,99 @@ interface Props {
 // Shared "sport detail" card: level pills + day-of-week circles + a native
 // time picker per selected day. Used by F1 onboarding step 3 and the F5
 // "Preferred Activities" editor so both stay in sync.
-export function SportAvailabilityCard({ activityName, sport, onSetLevel, onToggleDay, onSetDayTime, onSetMaxParticipants, onRemove }: Props) {
+export function SportAvailabilityCard({
+  activityName,
+  sport,
+  expanded = true,
+  onToggleExpanded,
+  onSetLevel,
+  onToggleDay,
+  onSetDayTime,
+  onSetMaxParticipants,
+  onRemove,
+}: Props) {
   return (
     <View style={styles.card}>
-      <View style={styles.titleRow}>
+      <Pressable style={styles.titleRow} onPress={onToggleExpanded} disabled={!onToggleExpanded}>
         <Text style={styles.title}>{activityName}</Text>
-        {onRemove && (
-          <Pressable accessibilityLabel={`Remove ${activityName}`} onPress={onRemove} style={styles.removeButton}>
-            <Text style={styles.removeIcon}>✕</Text>
-          </Pressable>
-        )}
-      </View>
-
-      <Text style={styles.label}>Your level</Text>
-      <View style={styles.pillRow}>
-        {LEVELS.map((level) => (
-          <Pressable
-            key={level}
-            style={[styles.levelPill, sport.level === level && styles.levelPillSelected]}
-            onPress={() => onSetLevel(level)}
-          >
-            <Text style={[styles.levelPillLabel, sport.level === level && styles.levelPillLabelSelected]}>{level}</Text>
-          </Pressable>
-        ))}
-      </View>
-
-      <Text style={[styles.label, { marginTop: spacing.md }]}>Availability</Text>
-      <Text style={styles.helperText}>Fill in your availability to appear in partner search for this sport.</Text>
-      <View style={styles.dayCircleRow}>
-        {DAY_ORDER.map((dayOfWeek, i) => {
-          const active = Boolean(sport.days[dayOfWeek]);
-          return (
-            <Pressable key={dayOfWeek} style={[styles.dayCircle, active && styles.dayCircleActive]} onPress={() => onToggleDay(dayOfWeek)}>
-              <Text style={[styles.dayCircleLabel, active && styles.dayCircleLabelActive]}>{DAY_LABELS[i]}</Text>
+        <View style={styles.titleRowRight}>
+          {!expanded && <Text style={styles.collapsedLevel}>{sport.level}</Text>}
+          {onRemove && (
+            <Pressable accessibilityLabel={`Remove ${activityName}`} onPress={onRemove} style={styles.removeButton}>
+              <Text style={styles.removeIcon}>✕</Text>
             </Pressable>
-          );
-        })}
-      </View>
+          )}
+          {onToggleExpanded && (
+            <Text accessibilityLabel={expanded ? "Collapse" : "Expand"} style={styles.chevron}>
+              {expanded ? "︿" : "﹀"}
+            </Text>
+          )}
+        </View>
+      </Pressable>
 
-      {DAY_ORDER.filter((d) => sport.days[d]).map((dayOfWeek) => (
-        <DayTimeRow
-          key={dayOfWeek}
-          dayLabel={DAY_NAMES[dayOfWeek]}
-          time={sport.days[dayOfWeek]}
-          onChange={(field, value) => onSetDayTime(dayOfWeek, field, value)}
-        />
-      ))}
+      {expanded && (
+        <>
+          <Text style={styles.label}>Your level</Text>
+          <View style={styles.pillRow}>
+            {LEVELS.map((level) => (
+              <Pressable
+                key={level}
+                style={[styles.levelPill, sport.level === level && styles.levelPillSelected]}
+                onPress={() => onSetLevel(level)}
+              >
+                <Text style={[styles.levelPillLabel, sport.level === level && styles.levelPillLabelSelected]}>{level}</Text>
+              </Pressable>
+            ))}
+          </View>
 
-      <View style={styles.divider} />
-      <Text style={styles.label}>How many partners are you looking for?</Text>
-      <View style={styles.stepperRow}>
-        <Pressable
-          accessibilityLabel="Decrease"
-          style={styles.stepperButton}
-          disabled={sport.maxParticipants <= MIN_PARTICIPANTS}
-          onPress={() => onSetMaxParticipants(Math.max(MIN_PARTICIPANTS, sport.maxParticipants - 1))}
-        >
-          <Text style={styles.stepperIcon}>−</Text>
-        </Pressable>
-        <Text style={styles.stepperValue}>{sport.maxParticipants}</Text>
-        <Pressable
-          accessibilityLabel="Increase"
-          style={styles.stepperButton}
-          disabled={sport.maxParticipants >= MAX_PARTICIPANTS}
-          onPress={() => onSetMaxParticipants(Math.min(MAX_PARTICIPANTS, sport.maxParticipants + 1))}
-        >
-          <Text style={styles.stepperIcon}>+</Text>
-        </Pressable>
-      </View>
-      <Text style={styles.stepperHelper}>
-        {sport.maxParticipants === 1 ? "You'll be matched 1:1" : "A group chat will be created when partners are found"}
-      </Text>
+          <Text style={[styles.label, { marginTop: spacing.md }]}>Availability</Text>
+          <Text style={styles.helperText}>Fill in your availability to appear in partner search for this sport.</Text>
+          <View style={styles.dayCircleRow}>
+            {DAY_ORDER.map((dayOfWeek, i) => {
+              const active = Boolean(sport.days[dayOfWeek]);
+              return (
+                <Pressable key={dayOfWeek} style={[styles.dayCircle, active && styles.dayCircleActive]} onPress={() => onToggleDay(dayOfWeek)}>
+                  <Text style={[styles.dayCircleLabel, active && styles.dayCircleLabelActive]}>{DAY_LABELS[i]}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {DAY_ORDER.filter((d) => sport.days[d]).map((dayOfWeek) => (
+            <DayTimeRow
+              key={dayOfWeek}
+              dayLabel={DAY_NAMES[dayOfWeek]}
+              time={sport.days[dayOfWeek]}
+              onChange={(field, value) => onSetDayTime(dayOfWeek, field, value)}
+            />
+          ))}
+
+          <View style={styles.divider} />
+          <Text style={styles.label}>How many partners are you looking for?</Text>
+          <View style={styles.stepperRow}>
+            <Pressable
+              accessibilityLabel="Decrease"
+              style={styles.stepperButton}
+              disabled={sport.maxParticipants <= MIN_PARTICIPANTS}
+              onPress={() => onSetMaxParticipants(Math.max(MIN_PARTICIPANTS, sport.maxParticipants - 1))}
+            >
+              <Text style={styles.stepperIcon}>−</Text>
+            </Pressable>
+            <Text style={styles.stepperValue}>{sport.maxParticipants}</Text>
+            <Pressable
+              accessibilityLabel="Increase"
+              style={styles.stepperButton}
+              disabled={sport.maxParticipants >= MAX_PARTICIPANTS}
+              onPress={() => onSetMaxParticipants(Math.min(MAX_PARTICIPANTS, sport.maxParticipants + 1))}
+            >
+              <Text style={styles.stepperIcon}>+</Text>
+            </Pressable>
+          </View>
+          <Text style={styles.stepperHelper}>
+            {sport.maxParticipants === 1 ? "You'll be matched 1:1" : "A group chat will be created when partners are found"}
+          </Text>
+        </>
+      )}
     </View>
   );
 }
@@ -163,6 +190,9 @@ const styles = StyleSheet.create({
   card: { backgroundColor: colors.primaryTint1, borderWidth: 1.5, borderColor: colors.coral, borderRadius: radii.sm, padding: spacing.md, marginTop: spacing.sm },
   titleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
   title: { fontFamily: typography.fontFamilyBold, fontSize: 15, color: colors.charcoal },
+  titleRowRight: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  collapsedLevel: { fontFamily: typography.fontFamilyRegular, fontSize: 13, color: colors.muted, textTransform: "capitalize" },
+  chevron: { fontSize: 14, color: colors.muted },
   removeButton: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
   removeIcon: { fontSize: 16, color: colors.muted },
   label: { fontFamily: typography.fontFamilyRegular, fontSize: 13, color: colors.muted },

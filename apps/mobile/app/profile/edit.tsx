@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { View, Text, TextInput, StyleSheet, Pressable, ScrollView, Modal, Alert } from "react-native";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "../../src/components/Button";
@@ -22,6 +22,12 @@ export default function EditProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { profile, refresh } = useAuth();
+  // Preferred Activities rows on My Profile deep-link here with the tapped
+  // activity's id so its card opens already expanded; every other entry
+  // point (photo pencil, empty-state CTA) omits it, so every card starts
+  // collapsed there.
+  const { initialExpandedActivity } = useLocalSearchParams<{ initialExpandedActivity?: string }>();
+  const [expandedActivityId, setExpandedActivityId] = useState<string | null>(initialExpandedActivity ?? null);
   const [displayName, setDisplayName] = useState(profile?.profile?.displayName ?? "");
   const [city, setCity] = useState(profile?.profile?.city ?? "");
   const [bio, setBio] = useState(profile?.profile?.bio ?? "");
@@ -74,6 +80,7 @@ export default function EditProfileScreen() {
 
   function addSport(activityId: string) {
     setSports((prev) => ({ ...prev, [activityId]: { activityId, level: "beginner", days: {}, maxParticipants: 1 } }));
+    setExpandedActivityId(activityId);
     setPickerOpen(false);
   }
 
@@ -189,6 +196,10 @@ export default function EditProfileScreen() {
             key={sport.activityId}
             activityName={activities.find((a) => a.id === sport.activityId)?.name ?? ""}
             sport={sport}
+            expanded={expandedActivityId === sport.activityId}
+            onToggleExpanded={() =>
+              setExpandedActivityId((prev) => (prev === sport.activityId ? null : sport.activityId))
+            }
             onSetLevel={(level) => setSportLevel(sport.activityId, level)}
             onToggleDay={(day) => toggleSportDay(sport.activityId, day)}
             onSetDayTime={(day, field, value) => setSportDayTime(sport.activityId, day, field, value)}

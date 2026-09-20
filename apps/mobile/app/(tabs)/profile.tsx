@@ -99,7 +99,11 @@ export default function ProfileScreen() {
                   const availability = formatAvailability(a.activityId);
                   const odd = i % 2 === 0;
                   return (
-                    <View key={a.activityId} style={[styles.sportRow, odd ? styles.rowTintPrimary : styles.rowTintSecondary]}>
+                    <Pressable
+                      key={a.activityId}
+                      style={[styles.sportRow, odd ? styles.rowTintPrimary : styles.rowTintSecondary]}
+                      onPress={() => router.push({ pathname: "/profile/edit", params: { initialExpandedActivity: a.activityId } })}
+                    >
                       <View style={styles.sportIconBadge}>
                         <ActivityIcon name={a.activity.name} size={18} />
                       </View>
@@ -114,7 +118,7 @@ export default function ProfileScreen() {
                       <View style={styles.levelBadge}>
                         <Text style={styles.levelBadgeLabel}>{a.level}</Text>
                       </View>
-                    </View>
+                    </Pressable>
                   );
                 })}
               </View>
