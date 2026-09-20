@@ -2,6 +2,7 @@ import { useState } from "react";
 import { View, Text, TextInput, StyleSheet, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { Button } from "../../src/components/Button";
 import { colors, spacing, typography, radii } from "../../src/theme";
 import { useAuth } from "../../src/hooks/useAuth";
@@ -39,6 +40,13 @@ export default function AuthScreen() {
         style={styles.artBackground}
         contentFit="cover"
         contentPosition={LOGIN_BG_FOCAL_POINT}
+        pointerEvents="none"
+      />
+      <LinearGradient
+        colors={["transparent", `${colors.coral}4D`]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={styles.artBackground}
         pointerEvents="none"
       />
 

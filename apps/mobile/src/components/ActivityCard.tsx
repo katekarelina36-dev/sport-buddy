@@ -11,7 +11,7 @@ interface Props {
   onPress: () => void;
 }
 
-export const ACTIVITY_CARD_HEIGHT = 92;
+export const ACTIVITY_CARD_HEIGHT = 140;
 
 // Full-width photo row for the Explore Activity screen (per the Figma card
 // redesign): a visible photo with a translucent brand-tinted wash on top
