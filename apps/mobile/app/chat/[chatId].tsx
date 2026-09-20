@@ -239,12 +239,13 @@ export default function ChatScreen() {
   const hiddenCount = activeTrainings.length - EVENTS_COLLAPSED_LIMIT;
 
   // UI Redesign Final, section 6: the challenge card moves out of the
-  // scrollable message list into the fixed header, shown only for the
-  // soonest upcoming scheduled Event (activeTrainings is sorted ascending).
-  const soonestTraining = activeTrainings[0];
-  const challengeMessage = soonestTraining
-    ? messages.find((m) => m.trainingId === soonestTraining.id && m.body.startsWith("Challenge:"))
-    : undefined;
+  // scrollable message list and anchors under its own scheduled Event's
+  // banner instead of one shared, fixed-position card (each Challenge is
+  // tied to a specific training via trainingId, so it can only ever match
+  // one banner).
+  const challengeMessageByTrainingId = new Map(
+    messages.filter((m) => m.trainingId && m.body.startsWith("Challenge:")).map((m) => [m.trainingId as string, m])
+  );
   const listMessages = messages.filter((m) => !m.body.startsWith("Challenge:"));
 
   return (
@@ -279,25 +280,36 @@ export default function ChatScreen() {
               const eventHasPassed = new Date(training.scheduledAt).getTime() <= Date.now();
               const myCompleted = isHostOf(training) ? training.completedByUserA : training.completedByUserB;
               const waiting = eventHasPassed && myCompleted;
+              const challengeMessage = challengeMessageByTrainingId.get(training.id);
               return (
-                <View key={training.id} style={styles.banner}>
-                  <View style={styles.bannerTopRow}>
-                    <Text style={styles.bannerSport} numberOfLines={1}>
-                      🏅 {training.activity?.name ?? "Activity"} · {formatBannerDate(training.scheduledAt)}
-                    </Text>
-                  </View>
-                  {waiting ? (
-                    <Text style={styles.bannerWaitingText}>Waiting for {partner?.profile?.displayName ?? "them"} to confirm…</Text>
-                  ) : (
-                    <View style={styles.bannerButtonRow}>
-                      <Pressable style={styles.editButton} onPress={() => openEditScheduler(training)}>
-                        <Text style={styles.editButtonLabel}>Edit</Text>
-                      </Pressable>
-                      {eventHasPassed && (
-                        <Pressable style={styles.completeButton} onPress={() => onCompleteTap(training)}>
-                          <Text style={styles.completeButtonLabel}>Complete ✓</Text>
+                <View key={training.id}>
+                  <View style={styles.banner}>
+                    <View style={styles.bannerTopRow}>
+                      <Text style={styles.bannerSport} numberOfLines={1}>
+                        🏅 {training.activity?.name ?? "Activity"} · {formatBannerDate(training.scheduledAt)}
+                      </Text>
+                    </View>
+                    {waiting ? (
+                      <Text style={styles.bannerWaitingText}>Waiting for {partner?.profile?.displayName ?? "them"} to confirm…</Text>
+                    ) : (
+                      <View style={styles.bannerButtonRow}>
+                        <Pressable style={styles.editButton} onPress={() => openEditScheduler(training)}>
+                          <Text style={styles.editButtonLabel}>Edit</Text>
                         </Pressable>
-                      )}
+                        {eventHasPassed && (
+                          <Pressable style={styles.completeButton} onPress={() => onCompleteTap(training)}>
+                            <Text style={styles.completeButtonLabel}>Complete ✓</Text>
+                          </Pressable>
+                        )}
+                      </View>
+                    )}
+                  </View>
+                  {challengeMessage && (
+                    <View style={styles.challengeHeaderCard}>
+                      <Text style={styles.challengeHeaderIcon}>⚡</Text>
+                      <Text style={styles.challengeHeaderText} numberOfLines={2}>
+                        {challengeMessage.body.replace("Challenge: ", "")}
+                      </Text>
                     </View>
                   )}
                 </View>
@@ -323,16 +335,6 @@ export default function ChatScreen() {
       {caseBanner === "closed" && (
         <View style={[styles.banner, styles.bannerClosed]}>
           <Text style={styles.bannerClosedText}>Session completed</Text>
-        </View>
-      )}
-
-      {/* Section 6: fixed challenge card for the soonest upcoming Event. */}
-      {challengeMessage && (
-        <View style={styles.challengeHeaderCard}>
-          <Text style={styles.challengeHeaderIcon}>⚡</Text>
-          <Text style={styles.challengeHeaderText} numberOfLines={2}>
-            {challengeMessage.body.replace("Challenge: ", "")}
-          </Text>
         </View>
       )}
 
