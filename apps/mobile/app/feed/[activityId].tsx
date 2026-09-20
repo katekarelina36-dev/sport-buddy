@@ -11,6 +11,7 @@ import { FilterSheet, type FilterValue } from "../../src/components/FilterSheet"
 import { SendActivityRequestSheet } from "../../src/components/SendActivityRequestSheet";
 import { colors, spacing, typography } from "../../src/theme";
 import { calculateAge } from "../../src/utils/age";
+import { capitalize } from "../../src/utils/capitalize";
 import type { DiscoverEntry } from "../../src/api/types";
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -100,7 +101,7 @@ export default function FeedScreen() {
 
                 <View style={styles.badgeRow}>
                   <Badge label={primaryActivity.activity.name} tone="coral" />
-                  <Badge label={primaryActivity.level} tone="neutral" />
+                  <Badge label={capitalize(primaryActivity.level)} tone="neutral" />
                 </View>
 
                 {slots.length > 0 && (

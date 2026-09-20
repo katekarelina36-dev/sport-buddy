@@ -10,6 +10,7 @@ import { colors, spacing, typography, radii, shadow } from "../../src/theme";
 import { useAuth } from "../../src/hooks/useAuth";
 import { usePendingRequestsCount } from "../../src/hooks/usePendingRequestsCount";
 import { calculateAge } from "../../src/utils/age";
+import { capitalize } from "../../src/utils/capitalize";
 
 type ProfileTab = "activities" | "communities";
 const DAY_ABBR = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -116,7 +117,7 @@ export default function ProfileScreen() {
                         )}
                       </View>
                       <View style={styles.levelBadge}>
-                        <Text style={styles.levelBadgeLabel}>{a.level}</Text>
+                        <Text style={styles.levelBadgeLabel}>{capitalize(a.level)}</Text>
                       </View>
                     </Pressable>
                   );
