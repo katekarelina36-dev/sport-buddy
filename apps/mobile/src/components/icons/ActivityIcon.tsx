@@ -1,183 +1,143 @@
 import type { ReactElement } from "react";
-import Svg, { Path, Circle, Ellipse, Rect, G } from "react-native-svg";
+import Svg, { Path, Circle, G } from "react-native-svg";
 
 interface IconProps {
   size?: number;
 }
 
-// Shared corner motif across the whole set: a colored "ball" badge with a
-// white motion-swirl (from the tennis design brief) recolored per activity —
-// this is what visually ties all ten icons together as one family.
-function BallBadge({ color }: { color: string }) {
+// Shared motif across the whole set: a colored circular badge with a
+// white glyph centered on top — glyphs are Material Design Icons (MDI,
+// via @iconify-json/mdi), chosen per activity since Flaticon itself isn't
+// reachable from this environment and its one official npm package
+// (flaticon-uicons) is a generic interface icon font with no sport icons.
+// Each glyph's native 24x24 viewBox is scaled into a 32x32 area centered
+// inside the 64x64 badge.
+function IconBadge({ color, glyphPath }: { color: string; glyphPath: string }) {
   return (
     <>
-      <Circle cx={13} cy={13} r={11} fill={color} />
-      <Path
-        fill="#fff"
-        d="M10.6 15.4C8.3 13 5.1 11.9 2 12.1v1.2c2.8-.2 5.6.8 7.7 3c2.1 2.1 3.1 5 3 7.7h1.2c.2-3.1-.9-6.3-3.3-8.6M24 12.7c-2.8.1-5.6-.8-7.7-3c-2.1-2.1-3.1-5-3-7.7h-1.2c-.1 3.1 1 6.2 3.3 8.6c2.4 2.4 5.5 3.5 8.6 3.3z"
-      />
+      <Circle cx={32} cy={32} r={30} fill={color} />
+      <G transform="translate(16, 16) scale(1.3333)">
+        <Path fill="#fff" d={glyphPath} />
+      </G>
     </>
   );
 }
 
+// mdi:tennis
 export function TennisIcon({ size = 40 }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 64 64">
-      <BallBadge color="#c7e755" />
-      <Path
-        fill="#d0d0d0"
-        d="m52.8 34.8l1-1l-2.3-2.3l4-4L57 29l1-1l-1.5-1.5l3.8-3.8l-1-1l-3.8 3.8l-3.2-3.2l4-4l3.1 3.1l1-1l-3.1-3.1l2.5-2.5l-1-1l-2.5 2.5l-3.1-3.3l3.5-3.5l-1-1l-3.5 3.5L49 8.8l2.5-2.5l-1-1L48 7.8l-3.1-3.1l-1 1L47 8.8l-4 4l-3.2-3.2l3.8-3.8l-1-1l-3.8 3.8l-1.5-1.5l-1 1l1.5 1.5l-4 4l-2.3-2.3l-1 1l2.3 2.3l-4 4l-1.5-1.5l-1 1l1.5 1.5l-3.8 3.8l1 1l3.8-3.8l3.2 3.2l-4 4l-3.1-3.1l-1 1l3.1 3.1l-2.5 2.5l1 1l2.5-2.5l3.2 3.2l-3.5 3.5l1 1l3.5-3.5l3.2 3.2l-2.5 2.5l1 1l2.5-2.5l3.1 3.1l1-1l-3.1-3.1l4-4l3.2 3.2l-3.8 3.8l1 1l3.7-3.8l1.5 1.5l1-1l-1.5-1.5l4-4zm1.7-8.3l-4 4l-3.2-3.2l4-4zm-13.2 4.8l-3.2-3.2l4-4l3.2 3.2zm-3.4-11.4l3.2 3.2l-4 4l-3.2-3.2zm5-5l3.2 3.2l-4 4l-3.2-3.2zm.2 8.2l4-4l3.2 3.2l-4 4zm12.2-5.8l-4 4l-3.2-3.2l4-4zm-7.4-7.4l3.2 3.2l-4 4l-3.1-3.3zm-9.2.8l3.2 3.2l-4 4l-3.2-3.2zm-9 9l4-4l3.2 3.2l-4 4zm-.8 9.2l4-4l3.2 3.2l-4 4zm7.3 7.4L33 33.1l4-4l3.2 3.2zm9.3-.8l-3.2-3.2l4-4l3.2 3.2z"
+      <IconBadge
+        color="#8BC34A"
+        glyphPath="M18 15a4 4 0 0 1 4 4a4 4 0 0 1-4 4a4 4 0 0 1-4-4a4 4 0 0 1 4-4m0 2a2 2 0 0 0-2 2a2 2 0 0 0 2 2a2 2 0 0 0 2-2a2 2 0 0 0-2-2M6.05 14.54s1.41-1.42 1.42-4.24c-.36-2.19.5-4.76 2.47-6.72C12.87.65 17.14.17 19.5 2.5c2.33 2.36 1.85 6.63-1.08 9.56c-1.96 1.97-4.53 2.83-6.72 2.47c-2.82.01-4.24 1.42-4.24 1.42l-4.24 4.24l-1.41-1.41zM18.07 3.93C16.5 2.37 13.5 2.84 11.35 5c-2.14 2.14-2.62 5.15-1.06 6.71c1.57 1.56 4.57 1.08 6.71-1.06c2.16-2.15 2.63-5.15 1.07-6.72"
       />
-      <Path
-        fill="#ff717f"
-        d="M57.7 7.5c-6.8-6.8-19.4-5.4-28 3.2s-10 21.1-3.2 28c6.9 6.8 19.4 5.4 28-3.2s10-21.1 3.2-28M29 36.2c-5.8-5.8-4.6-16.3 2.7-23.6s17.8-8.5 23.6-2.7s4.6 16.3-2.7 23.6S34.7 42 29 36.2"
-      />
-      <Path
-        fill="#ff717f"
-        d="M38.1 42.9c.7 0-5.8-2.3-5.8-2.3s-8.2 3.7-9.8 2.1s2.1-9.8 2.1-9.8s-2.3-6.5-2.4-5.8c-.4 6.5-1.4 12.9-4.5 16.5c-.4.5-1 1-1 1l1.9 1.9l1.9 1.9s.5-.6 1-1c3.7-3 10.1-4.1 16.6-4.5"
-      />
-      <Path fill="#4d4f59" d="m3.53 56.721l13.646-13.647l4.88 4.879L8.407 61.6z" />
-      <Path fill="#4d4f59" d="m10 50.2l3.4 6.3l2.1-2.1l-3.4-6.4zm-4.3 4.3l3.4 6.4l2.1-2.2l-3.4-6.3z" />
-      <Path fill="#5f606c" d="m3.5 56.7l4.8 4.9l.8-.7l-3.4-6.4zm4.3-4.3l3.4 6.3l2.2-2.2l-3.4-6.3zm9.4-9.4l-.7.7l3.3 6.4l2.2-2.2z" />
-      <Path fill="#4d4f59" d="m14.3 45.9l3.4 6.3l2.1-2.1l-3.3-6.4z" />
-      <Path fill="#5f606c" d="m12.1 48l3.4 6.4l2.2-2.2l-3.4-6.3z" />
-      <Path fill="#4d4f59" d="m3.056 56.263l1.556-1.555l5.727 5.728l-1.556 1.555zM15.17 44.169l1.556-1.556l5.726 5.73l-1.556 1.555z" />
     </Svg>
   );
 }
 
+// mdi:run-fast
 export function RunningIcon({ size = 40 }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 64 64">
-      <Circle cx={40} cy={16} r={6} fill="#5f606c" />
-      <Path
-        d="M38 22L28 36 M28 36L37 40L33 52 M28 36L17 43L9 46 M34 24L45 19 M30 27L19 31"
-        stroke="#ff6b4a"
-        strokeWidth={4}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
+      <IconBadge
+        color="#FF6B4A"
+        glyphPath="M16.5 5.5a2 2 0 0 0 2-2a2 2 0 0 0-2-2a2 2 0 0 0-2 2a2 2 0 0 0 2 2m-3.6 13.9l1-4.4l2.1 2v6h2v-7.5l-2.1-2l.6-3A7.3 7.3 0 0 0 22 13v-2c-1.76.03-3.4-.89-4.3-2.4l-1-1.6c-.36-.6-1-1-1.7-1c-.3 0-.5.1-.8.1L9 8.3V13h2V9.6l1.8-.7l-1.6 8.1l-4.9-1l-.4 2zM4 9a1 1 0 0 1-1-1a1 1 0 0 1 1-1h3v2zm1-4a1 1 0 0 1-1-1a1 1 0 0 1 1-1h5v2zm-2 8a1 1 0 0 1-1-1a1 1 0 0 1 1-1h4v2z"
       />
     </Svg>
   );
 }
 
+// mdi:bike
 export function CyclingIcon({ size = 40 }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 64 64">
-      <Circle cx={20} cy={44} r={10} fill="none" stroke="#4d4f59" strokeWidth={3} />
-      <Circle cx={44} cy={44} r={10} fill="none" stroke="#4d4f59" strokeWidth={3} />
-      <Path d="M20 44L34 18L44 44M34 18L40 44M24 30H46" stroke="#2e7d32" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" fill="none" />
-      <Path d="M34 18v-4M30 14h8M44 44l7-6" stroke="#4d4f59" strokeWidth={3} strokeLinecap="round" fill="none" />
+      <IconBadge
+        color="#2E7D32"
+        glyphPath="M5 20.5A3.5 3.5 0 0 1 1.5 17A3.5 3.5 0 0 1 5 13.5A3.5 3.5 0 0 1 8.5 17A3.5 3.5 0 0 1 5 20.5M5 12a5 5 0 0 0-5 5a5 5 0 0 0 5 5a5 5 0 0 0 5-5a5 5 0 0 0-5-5m9.8-2H19V8.2h-3.2l-1.94-3.27c-.29-.5-.86-.83-1.46-.83c-.47 0-.9.19-1.2.5L7.5 8.29C7.19 8.6 7 9 7 9.5c0 .63.33 1.16.85 1.47L11.2 13v5H13v-6.5l-2.25-1.65l2.32-2.35m5.93 13a3.5 3.5 0 0 1-3.5-3.5a3.5 3.5 0 0 1 3.5-3.5a3.5 3.5 0 0 1 3.5 3.5a3.5 3.5 0 0 1-3.5 3.5m0-8.5a5 5 0 0 0-5 5a5 5 0 0 0 5 5a5 5 0 0 0 5-5a5 5 0 0 0-5-5m-3-7.2c1 0 1.8-.8 1.8-1.8S17 1.2 16 1.2S14.2 2 14.2 3S15 4.8 16 4.8"
+      />
     </Svg>
   );
 }
 
+// mdi:chess-king
 export function ChessIcon({ size = 40 }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 64 64">
-      <Circle cx={32} cy={16} r={7} fill="#1e293b" />
-      <Rect x={25} y={22} width={14} height={3.5} rx={1.75} fill="#5f606c" />
-      <Path d="M26 27h12l4 18H22z" fill="#1e293b" />
-      <Rect x={19} y={47} width={26} height={6} rx={2.5} fill="#1e293b" />
+      <IconBadge
+        color="#1E293B"
+        glyphPath="M19 22H5v-2h14zm-2-12c-1.42 0-2.74.77-3.45 2H13V7h3V5h-3V2h-2v3H8v2h3v5h-.55C9.35 10.09 6.9 9.43 5 10.54A4.013 4.013 0 0 0 3.5 16c.74 1.24 2.07 2 3.5 2h10a4 4 0 0 0 4-4a4 4 0 0 0-4-4"
+      />
     </Svg>
   );
 }
 
+// mdi:basketball
 export function BasketballIcon({ size = 40 }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 64 64">
-      <Ellipse cx={13} cy={13} rx={11} ry={4} fill="none" stroke="#ff6b4a" strokeWidth={2.5} />
-      <Path d="M4 14l1 8M9 15l1 9M13 15v9M17 15l-1 9M22 14l-1 8" stroke="#d0d0d0" strokeWidth={1} strokeLinecap="round" fill="none" />
-      <Circle cx={40} cy={36} r={17} fill="#F0932B" />
-      <Path
-        d="M23 36h34M40 19v34M28 23c6 6 6 24 0 30M52 23c-6 6-6 24 0 30"
-        stroke="#1e293b"
-        strokeWidth={2}
-        fill="none"
+      <IconBadge
+        color="#F0932B"
+        glyphPath="M2.34 14.63c.6-.22 1.22-.33 1.88-.33q2.01 0 3.51 1.26L4.59 18.7a10.6 10.6 0 0 1-2.25-4.07M15.56 9.8c1.97 1.47 4.1 1.83 6.38 1.08c.03.21.06.59.06 1.12c0 1.03-.25 2.18-.72 3.45c-.47 1.26-1.05 2.28-1.73 3.05l-6.33-6.31zm-6.79 6.84c1.06 1.53 1.28 3.2.65 5.02c-1.42-.41-2.69-1.05-3.75-1.93zm3.42-3.42l6.31 6.33c-2.17 1.9-4.72 2.7-7.62 2.39c.21-.66.32-1.38.32-2.16c0-.62-.14-1.35-.42-2.18s-.61-1.51-.98-2.04zM8.81 14.5a6.7 6.7 0 0 0-3.23-1.59c-1.22-.23-2.39-.16-3.52.22c-.03-.22-.06-.6-.06-1.13c0-1.03.25-2.18.72-3.45c.47-1.26 1.05-2.28 1.73-3.05l6.66 6.69zm6.75-6.77c-1.34-1.65-1.65-3.45-.93-5.39c.62.16 1.33.46 2.13.92c.79.45 1.44.9 1.94 1.33zm6.1 1.65c-.6.21-1.22.32-1.88.32c-1.09 0-2.14-.32-3.14-.98l3.09-3.05c.88 1.1 1.52 2.33 1.93 3.71m-9.47 1.73L5.5 4.45c2.17-1.9 4.72-2.7 7.63-2.39q-.33.99-.33 2.16c0 .72.16 1.53.49 2.44c.33.9.71 1.62 1.21 2.15z"
       />
     </Svg>
   );
 }
 
+// mdi:yoga
 export function YogaIcon({ size = 40 }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 64 64">
-      <Circle cx={32} cy={22} r={6} fill="#5f606c" />
-      <Path
-        d="M32 28c-10 2-16 8-18 16c-1 3 1 5 4 5h28c3 0 5-2 4-5c-2-8-8-14-18-16z"
-        fill="#B39DDB"
+      <IconBadge
+        color="#B39DDB"
+        glyphPath="M13 2a2 2 0 1 0 0 4c1.11 0 2-.89 2-2a2 2 0 0 0-2-2M4 7v2h6v6l-5.07 5.07l1.41 1.43l6.72-6.73L17 17.13V21h2v-4.43c0-.36-.18-.68-.5-.86L15 13.6V9h6V7z"
       />
-      <Path d="M16 44c3-2 6-2 8 0M40 44c2-2 5-2 8 0" stroke="#5f606c" strokeWidth={2} strokeLinecap="round" fill="none" />
     </Svg>
   );
 }
 
+// mdi:swim
 export function SwimmingIcon({ size = 40 }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 64 64">
-      <Circle cx={40} cy={22} r={5} fill="#5f606c" />
-      <Path d="M34 27c4-2 8-2 12-4" stroke="#5f606c" strokeWidth={2.5} strokeLinecap="round" fill="none" />
-      <Path d="M14 36c4-4 8-4 12 0s8 4 12 0s8-4 12 0" stroke="#4FC3F7" strokeWidth={3} strokeLinecap="round" fill="none" />
-      <Path d="M14 44c4-4 8-4 12 0s8 4 12 0s8-4 12 0" stroke="#29B6F6" strokeWidth={3} strokeLinecap="round" fill="none" />
+      <IconBadge
+        color="#29B6F6"
+        glyphPath="M2 18c2.22-1 4.44-2 6.67-2c2.22 0 4.44 2 6.66 2c2.23 0 4.45-2 6.67-2v3c-2.22 0-4.44 2-6.67 2c-2.22 0-4.44-2-6.66-2c-2.23 0-4.45 1-6.67 2zm6.67-5c-.78 0-1.55.12-2.32.32l4.92-3.44l-1.04-1.24c-.14-.17-.23-.4-.23-.64c0-.34.17-.65.44-.83l5.72-4l1.15 1.63l-4.84 3.39l5.23 6.23c-.79.33-1.58.58-2.37.58c-2.22 0-4.44-2-6.66-2M18 7a2 2 0 0 1 2 2a2 2 0 0 1-2 2a2 2 0 0 1-2-2a2 2 0 0 1 2-2"
+      />
     </Svg>
   );
 }
 
+// mdi:carabiner
 export function ClimbingIcon({ size = 40 }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 64 64">
-      <Path d="M16 44L28 20l7 9l5-7l11 22z" fill="#8D6E63" />
-      <Path d="M28 20l4 5l-4 3l-4-3z" fill="#fff" />
-      <Path d="M40 25v10" stroke="#4d4f59" strokeWidth={1.5} />
-      <Path d="M40 25l6 3l-6 3z" fill="#ff717f" />
+      <IconBadge
+        color="#8D6E63"
+        glyphPath="M8 17.5c0 .83-.67 1.5-1.5 1.5S5 18.33 5 17.5S5.67 16 6.5 16s1.5.67 1.5 1.5M18 5.59C17.79 3.54 16.18 2 14.24 2H8.88C6.95 2 5.36 3.5 5.15 5.53L5 6.59C4.92 7.34 5.5 8 6.24 8c.63 0 1.15-.47 1.23-1.09l.14-1.09c.07-.75.62-1.32 1.27-1.32h5.36c.65 0 1.2.57 1.26 1.32l1 11.06c.09.86-.5 1.62-1.25 1.62l-5.21-.68a3.46 3.46 0 0 1-1.24 2.36l6.13.82h.32c1.02 0 2.01-.44 2.71-1.22A4.22 4.22 0 0 0 19 16.65zm-6.34 2.35c-.58-.37-1.35-.19-1.72.4L6.39 14h.11c.88 0 1.68.34 2.3.88l3.26-5.22c.37-.58.19-1.35-.4-1.72"
+      />
     </Svg>
   );
 }
 
-// streamline-cyber-color:football, used verbatim (24x24 viewBox, own palette).
+// mdi:soccer
 export function FootballIcon({ size = 40 }: IconProps) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24">
-      <G fill="none">
-        <Path fill="#fff" d="M12 .751L4.046 4.046L.751 12l3.295 7.954L12 23.249l7.954-3.295L23.249 12l-3.295-7.954z" />
-        <Path
-          fill="#bbd8ff"
-          d="m8.924 17.113l-1.912-6.26l5.001-3.644l5.002 3.645l-1.91 6.259zM8.805 2.075l3.208 1.37l3.195-1.364L12 .75zM22.979 12.65l-2.876-3.309l.361-4.085L23.249 12zm-2.225 5.374l-3.74.861l-1.812 3.037l4.752-1.968zM1.021 12.65l2.876-3.309l-.361-4.085L.75 12zm2.225 5.374l3.74.861l1.812 3.037l-4.752-1.968z"
-        />
-        <Path
-          stroke="#092f63"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M12 .751L4.046 4.046L.751 12l3.295 7.954L12 23.249l7.954-3.295L23.249 12l-3.295-7.954z"
-        />
-        <Path
-          stroke="#092f63"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="m8.924 17.113l-1.912-6.26l5.001-3.644l5.002 3.645l-1.91 6.259zM3.557 5.225l.364 4.118l-2.891 3.329m2.214 5.348l3.769.868l1.823 3.05m11.918-3.914l-3.74.861l-1.812 3.037l4.752-1.968zM12.013 7.209V3.445l3.195-1.365l4.746 1.966l.51 1.21l-.36 4.085l-3.09 1.512zm3.092 9.904l1.91 1.772m-8.091-1.772l-1.911 1.774M3.921 9.343l3.09 1.51"
-        />
-        <Path
-          stroke="#092f63"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="m8.805 2.075l3.208 1.37l3.195-1.364L12 .75zM22.979 12.65l-2.876-3.309l.361-4.085L23.249 12z"
-        />
-      </G>
+    <Svg width={size} height={size} viewBox="0 0 64 64">
+      <IconBadge
+        color="#37474F"
+        glyphPath="m16.93 17.12l-.8-1.36l1.46-4.37l1.41-.47l1 .75v.14c0 .07.03.13.03.19c0 1.97-.66 3.71-1.97 5.21zM9.75 15l-1.37-4.03L12 8.43l3.62 2.54L14.25 15zM12 20.03c-.88 0-1.71-.14-2.5-.42l-.69-1.51l.66-1.1h5.11l.61 1.1l-.69 1.51c-.79.28-1.62.42-2.5.42m-6.06-2.82c-.53-.62-.99-1.45-1.38-2.46c-.39-1.02-.59-1.94-.59-2.75c0-.06.03-.12.03-.19v-.14l1-.75l1.41.47l1.46 4.37l-.8 1.36zM11 5.29v1.4L7 9.46l-1.34-.42l-.42-1.36C5.68 7 6.33 6.32 7.19 5.66s1.68-1.09 2.46-1.31zm3.35-.94c.78.22 1.6.65 2.46 1.31S18.32 7 18.76 7.68l-.42 1.36l-1.34.43l-4-2.77V5.29zm-9.42.58C3 6.89 2 9.25 2 12s1 5.11 2.93 7.07S9.25 22 12 22s5.11-1 7.07-2.93S22 14.75 22 12s-1-5.11-2.93-7.07S14.75 2 12 2S6.89 3 4.93 4.93"
+      />
     </Svg>
   );
 }
 
+// mdi:human-female-dance
 export function DanceIcon({ size = 40 }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 64 64">
-      <Circle cx={34} cy={16} r={5} fill="#5f606c" />
-      <Path
-        d="M34 21v12M34 22l-9-6M34 22l10-3M34 33l-8 12M34 33l9 9"
-        stroke="#BA68C8"
-        strokeWidth={3}
-        strokeLinecap="round"
-        fill="none"
+      <IconBadge
+        color="#BA68C8"
+        glyphPath="M17 17h-2v6h-2v-6h-2.12l-1.54 1.93l2.37 2.36l-1.42 1.42l-2.36-2.37c-.35-.34-.55-.81-.58-1.3s.12-.98.43-1.36l.54-.68H7l2-4v-3c-.62.47-1.12 1.07-1.47 1.76c-.35.7-.53 1.46-.53 2.24H5a7 7 0 0 1 7-7c1.33 0 2.6-.53 3.54-1.46C16.47 4.6 17 3.33 17 2h2c0 1.32-.38 2.62-1.09 3.73A7 7 0 0 1 15 8.31V13zM14 4c0 .4-.12.78-.34 1.11s-.53.59-.89.74a2 2 0 0 1-2.18-.44c-.28-.28-.47-.63-.55-1.02s-.04-.79.11-1.15c.15-.37.41-.68.74-.9S11.6 2 12 2c.53 0 1.04.21 1.41.59c.38.37.59.88.59 1.41"
       />
     </Svg>
   );
@@ -196,14 +156,14 @@ const ICONS_BY_ACTIVITY_NAME: Record<string, (props: IconProps) => ReactElement>
   dance: DanceIcon,
 };
 
-// Falls back to the tennis ball badge alone for any activity outside the
-// known set, so a newly-added activity never renders a blank tile.
+// Falls back to a plain grey badge for any activity outside the known set,
+// so a newly-added activity never renders a blank tile.
 export function ActivityIcon({ name, size = 40 }: { name: string; size?: number }) {
   const Icon = ICONS_BY_ACTIVITY_NAME[name.toLowerCase()];
   if (Icon) return <Icon size={size} />;
   return (
     <Svg width={size} height={size} viewBox="0 0 64 64">
-      <BallBadge color="#8A94A6" />
+      <Circle cx={32} cy={32} r={30} fill="#8A94A6" />
     </Svg>
   );
 }
