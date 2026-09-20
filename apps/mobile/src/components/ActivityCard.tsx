@@ -1,6 +1,7 @@
 import { Pressable, Text, StyleSheet, type ImageSourcePropType } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
+import Svg, { Defs, RadialGradient, Stop, Rect } from "react-native-svg";
 import { resolveMediaUrl } from "../api/client";
 import { colors, typography } from "../theme";
 
@@ -14,6 +15,8 @@ interface Props {
 
 export const ACTIVITY_CARD_HEIGHT = 140;
 
+const OVERLAY_TINT = "#003161";
+
 // Full-width photo row for the Explore Activity screen (per the Figma card
 // redesign): a visible photo with a translucent brand-tinted wash on top
 // (same idea as the Communities list card — see CardOverlay there — so a
@@ -26,9 +29,19 @@ export const ACTIVITY_CARD_HEIGHT = 140;
 // — never fetched from Unsplash at runtime); `localImage` is a bundled
 // fallback for a sport the pipeline hasn't picked up a photo for yet (e.g.
 // Padel). A sport with neither falls back to a flat brand-gradient tile.
+//
+// The wash on top of the photo is a radial vignette (heavier at the
+// vertically-centered title, lighter toward the card edges) rather than a
+// flat overlay — a flat wash at any opacity high enough to guarantee title
+// contrast also crushes the photo everywhere else. RN has no cross-platform
+// `mix-blend-mode`, so this is the "plain layered overlay" fallback: an
+// SVG radial gradient in the overlay's own color/opacity, alpha-composited
+// over the photo (per-card gradient id to avoid RNSVG id collisions across
+// sibling cards in the same list).
 export function ActivityCard({ name, photoUrl, localImage, roundedTop, onPress }: Props) {
   const uri = resolveMediaUrl(photoUrl);
   const source: ImageSourcePropType | undefined = uri ? { uri } : localImage;
+  const gradientId = `cardVignette-${name}`;
   return (
     <Pressable
       accessibilityRole="button"
@@ -46,12 +59,16 @@ export function ActivityCard({ name, photoUrl, localImage, roundedTop, onPress }
           style={StyleSheet.absoluteFill}
         />
       )}
-      <LinearGradient
-        colors={["transparent", "#FFFFFF1A"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
+      <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
+        <Defs>
+          <RadialGradient id={gradientId} cx="50%" cy="50%" rx="45%" ry="30%">
+            <Stop offset="0%" stopColor={OVERLAY_TINT} stopOpacity={0.2} />
+            <Stop offset="50%" stopColor={OVERLAY_TINT} stopOpacity={0.14} />
+            <Stop offset="100%" stopColor={OVERLAY_TINT} stopOpacity={0.08} />
+          </RadialGradient>
+        </Defs>
+        <Rect x={0} y={0} width="100%" height="100%" fill={`url(#${gradientId})`} />
+      </Svg>
       <Text style={styles.label}>{name}</Text>
     </Pressable>
   );
@@ -74,8 +91,8 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamilyBold,
     fontSize: 40,
     color: colors.textOnDark,
-    textShadowColor: "rgba(0,0,0,0.35)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
+    textShadowColor: "rgba(0,0,0,0.6)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 6,
   },
 });
