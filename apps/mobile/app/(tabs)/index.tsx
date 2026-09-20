@@ -110,6 +110,7 @@ export default function HomeScreen() {
               name={item.name}
               photoUrl={item.iconUrl}
               localImage={item.name === "Padel" ? PADEL_IMAGE : undefined}
+              imageFocalPoint={item.name === "Padel" ? { top: "0%", left: "30%" } : undefined}
               roundedTop={index === 0}
               onPress={() => goToFeed(item)}
             />
