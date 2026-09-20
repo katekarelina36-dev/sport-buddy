@@ -2,7 +2,7 @@ import { Pressable, Text, StyleSheet, type ImageSourcePropType } from "react-nat
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { resolveMediaUrl } from "../api/client";
-import { colors, spacing, typography } from "../theme";
+import { colors, radii, spacing, typography } from "../theme";
 
 type FocalPoint = { top: string; left: string };
 
@@ -14,7 +14,6 @@ interface Props {
   // busy subject (racket, ball, player) would otherwise land under the
   // bottom-left title.
   imageFocalPoint?: FocalPoint;
-  roundedTop?: boolean;
   onPress: () => void;
 }
 
@@ -30,20 +29,15 @@ export const ACTIVITY_CARD_HEIGHT = 140;
 // apps/api/scripts/downloadSportImages.ts) because this screen's six cards
 // need a specific, curated composition — bottom-left third clear of the
 // photo's main subject — that a randomly-fetched photo can't guarantee. A
-// sport with neither photo falls back to a flat brand-gradient tile. Only
-// the very first card in the list gets rounded top corners — every other
-// corner on every card is square, so the stack reads as one continuous
-// strip rather than individual tiles.
-export function ActivityCard({ name, photoUrl, localImage, imageFocalPoint, roundedTop, onPress }: Props) {
+// sport with neither photo falls back to a flat brand-gradient tile. Each
+// card is a fully rounded, standalone tile (not a continuous strip) — see
+// the gap in the list's contentContainerStyle in the screen that renders
+// these.
+export function ActivityCard({ name, photoUrl, localImage, imageFocalPoint, onPress }: Props) {
   const uri = resolveMediaUrl(photoUrl);
   const source: ImageSourcePropType | undefined = localImage ?? (uri ? { uri } : undefined);
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={name}
-      onPress={onPress}
-      style={[styles.card, roundedTop && styles.roundedTop]}
-    >
+    <Pressable accessibilityRole="button" accessibilityLabel={name} onPress={onPress} style={styles.card}>
       {source ? (
         <Image
           source={source}
@@ -80,11 +74,7 @@ const styles = StyleSheet.create({
     paddingLeft: spacing.md,
     paddingBottom: spacing.md,
     overflow: "hidden",
-    borderRadius: 0,
-  },
-  roundedTop: {
-    borderTopLeftRadius: 40,
-    borderTopRightRadius: 40,
+    borderRadius: radii.lg,
   },
   // Only the bottom ~60% of the card, fading to fully transparent above
   // that — the rest of the photo is left untouched, per spec.
