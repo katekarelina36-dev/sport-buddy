@@ -223,7 +223,7 @@ activityRequestsRouter.post("/:id/approve", async (req: AuthedRequest, res) => {
       if (!alreadyScheduled) {
         const priorCompleted = await tx.trainingSession.findFirst({ where: { chatId: chat.id, status: "completed" } });
         const scheduledAt = nextOccurrence(request.selectedDayOfWeek, request.selectedStartTime);
-        await tx.trainingSession.create({
+        const training = await tx.trainingSession.create({
           data: {
             chatId: chat.id,
             hostId: recipientId(request),
@@ -233,6 +233,20 @@ activityRequestsRouter.post("/:id/approve", async (req: AuthedRequest, res) => {
             isFirstBetweenUsers: !priorCompleted,
           },
         });
+
+        // Same as F13 in training.ts's manual "Schedule Event" flow — this
+        // auto-created Event was skipping it, so a request's first session
+        // never got a challenge card while every later, manually-scheduled
+        // one did.
+        const pool = await tx.challenge.findMany({ where: { activityId: request.activityId, isActive: true } });
+        if (pool.length > 0) {
+          const challenge = pool[Math.floor(Math.random() * pool.length)];
+          await tx.trainingChallenge.create({ data: { trainingId: training.id, challengeId: challenge.id } });
+          await tx.message.create({
+            data: { chatId: chat.id, type: "system", body: `Challenge: ${challenge.content}`, trainingId: training.id },
+          });
+        }
+
         autoScheduled = { scheduledAt, isFirst: !priorCompleted };
       }
     }

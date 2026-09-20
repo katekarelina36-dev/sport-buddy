@@ -199,3 +199,11 @@ The update doc asked to replace every sport photo, using 8 provided custom photo
 - **`apps/api/scripts/ingestCustomSportImages.ts`** (new): matches each file's name against an `Activity` by slug, stores it through `mediaDriver.store()`, and writes `Activity.iconUrl` — always overwriting, since a provided photo is authoritative. Run with `npm run ingest:custom-sport-images --workspace apps/api`.
 - **Run order**: `ingest:custom-sport-images` first, then `download:sport-images` — the download script already skips any sport with an `iconUrl` unless `--force` is passed, so it naturally only fills the remaining ~17 sports from Unsplash and never overwrites the 8 custom photos.
 - No code or config changes were needed to satisfy "no Unsplash URL anywhere in the app" — the mobile app never held one; `UNSPLASH_ACCESS_KEY` (not `EXPO_PUBLIC_`-prefixed) stays server-side-only in `.env.example`, used only by these two one-time scripts, and can be deleted once every sport has a photo.
+
+## Explore Activities shortlist expanded to 12 sports
+
+`EXPLORE_ACTIVITIES` (`apps/mobile/src/constants/exploreActivities.ts`) grew from the original fixed six (Tennis, Padel, Badminton, Squash, Basketball, Volleyball) to twelve: adds Football, Running, Cycling, Gym / Fitness, Yoga, and Boxing. No other change needed — the screen already renders whatever this list contains, and all twelve are already among the sports with a stored `iconUrl`.
+
+## Bug fix: auto-scheduled first Event was missing its challenge card
+
+Approving an Activity Request that carries a day+time (Round 7, Fix 3) auto-creates a `TrainingSession` and posts the "You've scheduled your first ... session!" message, but — unlike the manual "Schedule Event" flow in `training.ts` (F13) — it never ran the challenge-selection step, so that first, auto-created session had no `Challenge: ...` system message and thus no challenge card in chat; every later, manually-scheduled session did, since it goes through `POST /training` instead. Fixed by porting the same F13 logic (pick a random active `Challenge` for the sport, create a `TrainingChallenge` row, post the `Challenge: ...` system message tagged with the training's id) into the approval transaction in `apps/api/src/routes/activityRequests.ts`, right after the auto-created `TrainingSession`.
