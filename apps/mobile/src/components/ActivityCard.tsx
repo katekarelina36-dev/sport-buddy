@@ -47,7 +47,7 @@ export function ActivityCard({ name, photoUrl, localImage, roundedTop, onPress }
         />
       )}
       <LinearGradient
-        colors={["transparent", `${colors.coral}CC`]}
+        colors={["transparent", `${colors.coral}1A`]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={StyleSheet.absoluteFill}
@@ -69,11 +69,11 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 40,
     borderTopRightRadius: 40,
   },
-  photo: { opacity: 0.8 },
+  photo: { opacity: 0.2 },
   label: {
     fontFamily: typography.fontFamilyBold,
     fontSize: 40,
-    color: colors.textOnDark,
+    color: "#04001D",
     textShadowColor: "rgba(0,0,0,0.35)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 4,
